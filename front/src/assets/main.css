@@ -1,0 +1,74 @@
+:root {
+  --color-primary: #409eff;
+  --color-primary-soft: #ecf5ff;
+  --color-surface: #ffffff;
+  --color-bg: #f5f7fb;
+  --color-border: #e4e8f0;
+  --color-text: #1f2937;
+  --color-text-muted: #6b7280;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* 模块页面通用布局 */
+.page {
+  padding: 32px 0;
+}
+
+.page__header {
+  margin-bottom: 24px;
+}
+
+.page__title {
+  margin: 0 0 8px;
+  font-size: 24px;
+  color: var(--color-text);
+}
+
+.page__summary {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.7;
+}
+
+.page__card {
+  border-radius: 12px;
+}
+
+.page__card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.page__features {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--color-text);
+  line-height: 2;
+}

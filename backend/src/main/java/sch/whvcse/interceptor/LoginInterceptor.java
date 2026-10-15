@@ -7,10 +7,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import sch.whvcse.common.BizException;
 
-/**
- * 登录校验拦截器：检查 Session 里有没有登录用户。
- * 这里不用 JWT，登录状态由服务端的 HttpSession 保存。
- */
+
 @Component
 public class LoginInterceptor implements HandlerInterceptor {
 

@@ -7,6 +7,7 @@ import sch.whvcse.entity.User;
 import sch.whvcse.mapper.UserMapper;
 import sch.whvcse.service.AuthService;
 import sch.whvcse.vo.LoginVO;
+import sch.whvcse.vo.RegisterVO;
 import sch.whvcse.vo.UserVO;
 
 @Service
@@ -28,6 +29,21 @@ public class AuthServiceImpl implements AuthService {
             throw new BizException(401, "用户名或密码错误");
         }
         // Entity -> VO：只把该给前端看的字段带出去，密码自然不出现在响应里
+        return toVO(user);
+    }
+
+    @Override
+    public UserVO register(RegisterVO registerVO) {
+        // 用户名唯一性校验
+        if (userMapper.findByUsername(registerVO.getUsername()) != null) {
+            throw new BizException(400, "该用户名已被注册");
+        }
+        User user = new User();
+        user.setUsername(registerVO.getUsername());
+        user.setPassword(passwordEncoder.encode(registerVO.getPassword()));
+        user.setName(registerVO.getName());
+        user.setRole("student"); // 自助注册默认为学员
+        userMapper.insert(user);
         return toVO(user);
     }
 

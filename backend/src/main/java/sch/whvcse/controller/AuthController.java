@@ -11,10 +11,12 @@ import sch.whvcse.common.Result;
 import sch.whvcse.interceptor.LoginInterceptor;
 import sch.whvcse.service.AuthService;
 import sch.whvcse.vo.LoginVO;
+import sch.whvcse.vo.RegisterVO;
 import sch.whvcse.vo.UserVO;
 
 /**
  * 认证接口（Session 方案）。
+ * POST /api/auth/register 注册（自助注册，角色固定为学员）
  * POST /api/auth/login   登录（成功后把 UserVO 放进 Session）
  * GET  /api/auth/me      获取当前登录用户
  * POST /api/auth/logout  登出（销毁 Session）
@@ -27,6 +29,11 @@ public class AuthController {
 
     public AuthController(AuthService authService) {
         this.authService = authService;
+    }
+
+    @PostMapping("/register")
+    public Result<UserVO> register(@RequestBody @Valid RegisterVO registerVO) {
+        return Result.ok(authService.register(registerVO));
     }
 
     @PostMapping("/login")

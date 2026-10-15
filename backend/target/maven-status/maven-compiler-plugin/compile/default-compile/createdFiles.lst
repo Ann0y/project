@@ -6,8 +6,9 @@ sch/whvcse/entity/User.class
 sch/whvcse/service/impl/AuthServiceImpl.class
 sch/whvcse/mapper/UserMapper.class
 sch/whvcse/controller/AuthController.class
-sch/whvcse/BackendApplication.class
+sch/whvcse/vo/RegisterVO.class
 sch/whvcse/common/BizException.class
+sch/whvcse/BackendApplication.class
 sch/whvcse/common/GlobalExceptionHandler.class
 sch/whvcse/vo/LoginVO.class
 sch/whvcse/vo/UserVO.class

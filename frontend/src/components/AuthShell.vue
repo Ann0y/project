@@ -1,4 +1,7 @@
 <script setup>
+/**
+ * 登录 / 注册页外壳：玻璃卡片 + 品牌区
+ */
 defineProps({
   title: { type: String, required: true },
   subtitle: { type: String, default: '' },
@@ -7,10 +10,13 @@ defineProps({
 
 <template>
   <div class="auth">
-    <div class="auth__card">
+    <div class="auth__card glass">
       <div class="auth__brand">
         <span class="auth__logo">驾</span>
-        <span class="auth__app">驾校学员培训与考试管理系统</span>
+        <span class="auth__app">
+          <strong>驾校学员培训与考试管理系统</strong>
+          <small>Driving School Management</small>
+        </span>
       </div>
 
       <h1 class="auth__title">{{ title }}</h1>
@@ -18,6 +24,8 @@ defineProps({
 
       <slot />
     </div>
+
+    <RouterLink class="auth__home" to="/">← 返回首页（学员端）</RouterLink>
   </div>
 </template>
 
@@ -26,18 +34,15 @@ defineProps({
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 24px;
-  background: radial-gradient(1200px 600px at 50% -10%, #e8f1ff 0%, var(--color-bg) 60%);
+  align-content: center;
+  gap: 18px;
+  padding: 32px 20px;
 }
 
 .auth__card {
   width: 100%;
-  max-width: 400px;
-  padding: 32px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  max-width: 420px;
+  padding: 30px 30px 26px;
 }
 
 .auth__brand {
@@ -50,30 +55,55 @@ defineProps({
 .auth__logo {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--el-color-primary);
-  color: #fff;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--text-inverse);
   font-size: 16px;
   font-weight: 700;
 }
 
 .auth__app {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text);
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.auth__app strong {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.auth__app small {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
 }
 
 .auth__title {
   margin: 0 0 4px;
-  font-size: 22px;
-  color: var(--color-text);
+  font-size: 23px;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
 }
 
 .auth__subtitle {
-  margin: 0 0 24px;
+  margin: 0 0 22px;
   font-size: 13px;
-  color: var(--color-text-muted);
+  color: var(--text-secondary);
+}
+
+.auth__home {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  transition: color 0.2s var(--ease-out);
+}
+
+.auth__home:hover {
+  color: var(--text-primary);
 }
 </style>

@@ -1,30 +1,32 @@
 <script setup>
+/**
+ * 注册页（F01）
+ * 自助注册默认学员角色，注册成功后自动登录并进入学员端首页。
+ */
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Lock, Phone, User, UserFilled } from '@element-plus/icons-vue'
 import AuthShell from '../components/AuthShell.vue'
 import { useAuthStore } from '../stores/auth'
+import { LICENSE_TYPES } from '../data/demo'
 
 const router = useRouter()
 const auth = useAuthStore()
 
 const formRef = ref()
-const loading = ref(false)
 const form = reactive({
   name: '',
   username: '',
   phone: '',
+  licenseType: 'C1',
   password: '',
   confirmPassword: '',
 })
 
 function validateConfirm(rule, value, callback) {
-  if (value !== form.password) {
-    callback(new Error('两次输入的密码不一致'))
-  } else {
-    callback()
-  }
+  if (value !== form.password) callback(new Error('两次输入的密码不一致'))
+  else callback()
 }
 
 const rules = {
@@ -52,26 +54,25 @@ async function onSubmit() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
 
-  loading.value = true
   try {
     await auth.register({
       username: form.username,
       password: form.password,
       name: form.name,
       phone: form.phone,
+      licenseType: form.licenseType,
     })
-    ElMessage.success('账户创建成功，请登录')
-    router.replace({ name: 'login', query: { username: form.username } })
+    ElMessage.success('注册成功，正在为你登录')
+    await auth.login({ username: form.username, password: form.password })
+    router.replace({ name: 'progress' })
   } catch (error) {
-    ElMessage.error(error.message || '创建失败')
-  } finally {
-    loading.value = false
+    ElMessage.error(error.message || '注册失败')
   }
 }
 </script>
 
 <template>
-  <AuthShell title="创建账户" subtitle="填写以下信息完成注册">
+  <AuthShell title="注册学员账号" subtitle="自助注册默认为学员角色，报名资料由管理员后续审核">
     <el-form
       ref="formRef"
       :model="form"
@@ -92,6 +93,14 @@ async function onSubmit() {
         <el-input v-model="form.phone" placeholder="请输入手机号" :prefix-icon="Phone" clearable />
       </el-form-item>
 
+      <el-form-item label="意向准驾车型" prop="licenseType">
+        <el-radio-group v-model="form.licenseType">
+          <el-radio-button v-for="type in LICENSE_TYPES" :key="type" :value="type">
+            {{ type }}
+          </el-radio-button>
+        </el-radio-group>
+      </el-form-item>
+
       <el-form-item label="密码" prop="password">
         <el-input
           v-model="form.password"
@@ -109,44 +118,44 @@ async function onSubmit() {
           placeholder="请再次输入密码"
           :prefix-icon="Lock"
           show-password
+          @keyup.enter="onSubmit"
         />
       </el-form-item>
 
       <el-button
         type="primary"
-        class="auth-form__submit"
-        :loading="loading"
+        class="register__submit"
+        size="large"
+        :loading="auth.loading"
         native-type="submit"
       >
-        创建账户
+        注册并登录
       </el-button>
 
-      <div class="auth-form__footer">
+      <div class="register__footer">
         已有账号？
-        <RouterLink class="auth-form__link" :to="{ name: 'login' }">去登录</RouterLink>
+        <RouterLink class="register__link" :to="{ name: 'login' }">去登录</RouterLink>
       </div>
     </el-form>
   </AuthShell>
 </template>
 
 <style scoped>
-.auth-form__submit {
+.register__submit {
   width: 100%;
 }
 
-.auth-form__footer {
+.register__footer {
   margin-top: 16px;
   text-align: center;
   font-size: 13px;
-  color: var(--color-text-muted);
+  color: var(--text-secondary);
 }
 
-.auth-form__link {
-  color: var(--el-color-primary);
+.register__link {
+  color: var(--text-primary);
+  font-weight: 600;
   text-decoration: none;
-}
-
-.auth-form__link:hover {
-  text-decoration: underline;
+  border-bottom: 1px solid var(--border-strong);
 }
 </style>

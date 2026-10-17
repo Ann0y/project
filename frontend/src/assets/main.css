@@ -7,24 +7,18 @@
 
 :root {
   /* ---- 无彩色阶（0 = 纯黑，1000 = 纯白） ---- */
-  --ink-950: #0a0a0b;
   --ink-900: #121214;
-  --ink-850: #17171a;
   --ink-800: #1d1d21;
-  --ink-750: #26262b;
   --ink-700: #33333a;
-  --ink-600: #4a4a53;
   --ink-500: #6b6b76;
   --ink-400: #8f8f9a;
   --ink-300: #b4b4bd;
   --ink-200: #d6d6dc;
   --ink-150: #e3e3e8;
-  --ink-100: #ececef;
-  --ink-50: #f5f5f7;
   --ink-25: #fafafb;
   --white: #ffffff;
 
-  /* ---- 语义化令牌 · 浅色主题（默认）：纯白主背景 ---- */
+  /* ---- 语义化令牌 · 浅色主题：纯白主背景 ---- */
   --bg-base: var(--white);
   --bg-raised: var(--white);
   --bg-sunken: var(--ink-25);
@@ -48,15 +42,10 @@
   --surface-radius: var(--radius-lg);
 
   /* 兼容别名：统一指向白底 + 边框，避免残留玻璃态 */
-  --glass-bg: var(--white);
   --glass-bg-strong: var(--white);
   --glass-border: var(--ink-200);
-  --glass-shadow: none;
-  --glass-highlight: none;
 
   /* ---- 阴影 ---- */
-  --shadow-xs: 0 1px 2px rgba(10, 10, 11, 0.05);
-  --shadow-sm: 0 2px 8px rgba(10, 10, 11, 0.06);
   --shadow-md: 0 8px 24px rgba(10, 10, 11, 0.09);
   --shadow-lg: 0 18px 48px rgba(10, 10, 11, 0.14);
 
@@ -81,41 +70,6 @@
   --nav-height: 64px;
   --page-max: 1440px;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-/* ==========================================================================
-   深色主题：整体反相，保持同一套灰阶语义
-   ========================================================================== */
-html.dark {
-  --bg-base: var(--ink-950);
-  --bg-raised: var(--ink-900);
-  --bg-sunken: var(--ink-850);
-  --bg-inverse: var(--white);
-
-  --text-primary: #f2f2f4;
-  --text-secondary: var(--ink-400);
-  --text-tertiary: var(--ink-500);
-  --text-inverse: var(--ink-950);
-
-  --border-strong: var(--ink-600);
-  --border-base: var(--ink-700);
-  --border-subtle: var(--ink-750);
-
-  --accent: var(--white);
-  --accent-hover: var(--ink-100);
-
-  --surface-bg: var(--ink-900);
-  --surface-border: var(--ink-700);
-
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.45);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.6);
-
-  --state-ok: var(--ink-100);
-  --state-pending: var(--ink-400);
-  --state-warn: #b39b80;
-  --state-danger: #b08b8b;
 }
 
 /* ==========================================================================
@@ -146,7 +100,7 @@ body {
   transition: background-color 0.3s var(--ease-out), color 0.3s var(--ease-out);
 }
 
-/* 主背景：纯白（深色主题下为近黑） */
+/* 主背景：纯白 */
 body::before {
   display: none;
 }
@@ -412,10 +366,6 @@ a {
   transition: width 0.6s var(--ease-out);
 }
 
-html.dark .meter__fill {
-  background: linear-gradient(90deg, var(--ink-500), var(--ink-100));
-}
-
 /* ==========================================================================
    标签（状态色标化，全部走灰阶）
    ========================================================================== */
@@ -551,11 +501,6 @@ html.dark .meter__fill {
   border-color: var(--ink-900);
 }
 
-html.dark .timeline__item--done::before {
-  background: var(--ink-100);
-  border-color: var(--ink-100);
-}
-
 .timeline__date {
   font-size: 11px;
   letter-spacing: 0.05em;
@@ -604,21 +549,6 @@ html.dark .timeline__item--done::before {
 
   --el-border-radius-base: 10px;
   --el-font-family: var(--font-sans);
-}
-
-html.dark {
-  --el-color-primary: #f2f2f4;
-  --el-color-primary-light-3: #d6d6dc;
-  --el-color-primary-light-5: #b4b4bd;
-  --el-color-primary-light-7: #4a4a53;
-  --el-color-primary-light-8: #33333a;
-  --el-color-primary-light-9: #26262b;
-  --el-color-primary-dark-2: #ffffff;
-
-  --el-bg-color: var(--bg-raised);
-  --el-bg-color-overlay: var(--ink-850);
-  --el-fill-color-blank: var(--bg-raised);
-  --el-fill-color-light: var(--bg-sunken);
 }
 
 /* 按钮 */

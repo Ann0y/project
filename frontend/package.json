@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "verify": "node scripts/verify.mjs",
-    "verify:data": "node scripts/verify-data.mjs"
+    "verify:e2e": "node scripts/verify-e2e.mjs",
+    "verify:booking": "node scripts/verify-date.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",

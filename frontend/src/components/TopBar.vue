@@ -15,12 +15,10 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
 import { DEFAULT_ROLE, NAV_GROUPS } from '../config/roles'
-import { useTheme } from '../composables/useTheme'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-const { isDark, toggleTheme } = useTheme()
 
 const mobileOpen = ref(false)
 const activeName = computed(() => route.name)
@@ -95,10 +93,6 @@ async function onUserCommand(command) {
       </nav>
 
       <div class="nav__aside">
-        <button class="nav__btn" type="button" @click="toggleTheme">
-          {{ isDark ? '浅色' : '深色' }}
-        </button>
-
         <el-dropdown v-if="auth.isAuthenticated" trigger="click" @command="onUserCommand">
           <span class="nav__user">
             <span class="nav__avatar">{{ auth.initial }}</span>

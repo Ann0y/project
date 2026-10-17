@@ -5,7 +5,8 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 /**
- * 注册参数（前端提交）。自助注册的账号角色固定为 student。
+ * 注册参数（前端提交）。自助注册的账号角色固定为 student，
+ * 同时创建一份「待审核」的学员档案（需求 3.1 报名流程起点）。
  */
 @Data
 public class RegisterVO {
@@ -21,6 +22,13 @@ public class RegisterVO {
     @NotBlank(message = "姓名不能为空")
     private String name;
 
-    /** 手机号：目前仅接收，暂不落库（user 表暂无该字段） */
+    /** 联系电话 */
+    @NotBlank(message = "手机号不能为空")
     private String phone;
+
+    /** 身份证号（明文提交，后端 AES 加密落库） */
+    private String idCard;
+
+    /** 意向准驾车型，默认 C1 */
+    private String licenseType;
 }

@@ -25,7 +25,9 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/api/**")
                 // 带 Cookie 时不能用 "*"，用 originPatterns
                 .allowedOriginPatterns("http://localhost:*", "http://127.0.0.1:*")
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                // 必须包含 PATCH：预约状态流转、学时审核、启停用等接口都用的 PATCH，
+                // 漏配会导致浏览器端跨域请求直接 403
+                .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true)   // 关键：允许携带 JSESSIONID
                 .maxAge(3600);
@@ -36,6 +38,11 @@ public class WebConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(loginInterceptor)
                 .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/auth/login", "/api/auth/register", "/api/auth/logout");
+                .excludePathPatterns(
+                        "/api/auth/login",
+                        "/api/auth/register",
+                        "/api/auth/logout",
+                        // 字典枚举属于公开资源，登录页也要用它渲染下拉框
+                        "/api/enums");
     }
 }

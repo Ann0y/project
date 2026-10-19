@@ -14,7 +14,7 @@ backend/target/
 .vscode/
 *.iml
 .DS_Store
-.m2-repo
+.m2-repo/
 
 # 日志
 *.log

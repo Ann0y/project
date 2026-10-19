@@ -1,0 +1,5 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Thu Oct 08 15:34:48 CST 2026
+spring-boot-jdbc-4.1.1-sources.jar>central=
+spring-boot-jdbc-4.1.1.jar>central=
+spring-boot-jdbc-4.1.1.pom>central=

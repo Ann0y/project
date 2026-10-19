@@ -1,6 +1,6 @@
 <script setup>
 /**
- * 登录 / 注册页外壳：玻璃卡片 + 品牌区
+ * 登录 / 注册页外壳：白底卡片 + 品牌区
  */
 defineProps({
   title: { type: String, required: true },
@@ -31,18 +31,20 @@ defineProps({
 
 <style scoped>
 .auth {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   align-content: center;
   gap: 18px;
   padding: 32px 20px;
+  background: var(--bg-sunken);
 }
 
 .auth__card {
   width: 100%;
   max-width: 420px;
   padding: 30px 30px 26px;
+  box-shadow: var(--shadow-md);
 }
 
 .auth__brand {

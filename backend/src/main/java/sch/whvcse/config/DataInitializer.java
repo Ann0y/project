@@ -229,56 +229,67 @@ public class DataInitializer implements CommandLineRunner {
                 .filter(s -> s.getCoachId().equals(coach.getId()))
                 .toList();
 
-        // 业务规则：同一学员同一时间只能有 1 个有效预约（待确认 / 已确认）。
-        // 因此种子数据里每个学员最多一条「待确认」或「已确认」，其余历史记录为已完成/已取消/爽约。
+        // 业务规则：一名学员最多同时持有 2 条未完成预约（待确认 / 已确认），由 book() 校验。
+        // 演示约定：
+        //   · student 账号（李小明）不播任何预约，默认「还没有预约」，方便现场演示约车；
+        //   · 其他在训学员播 0~2 条未完成预约，供教练端「待确认预约 / 预约处理」演示；
+        //   · 另播 1~2 条历史记录（已完成 / 已取消 / 爽约），只用于列表展示，不占用时段容量。
         String[] historyStatuses = {"已完成", "已取消", "爽约"};
         int slotIdx = 0;
         int studentIdx = 0;
         for (Student st : allStudents) {
             if (!"在训".equals(st.getStatus())) continue;
 
-            // 1) 最多 1 条「生效中」的预约：约一半学员有，另一半保持空闲便于演示约车
-            boolean hasActive = studentIdx % 2 == 0;
-            if (hasActive) {
+            boolean isDemoStudent = st.getId().equals(mainStudent.getId());
+
+            // 1) 未完成预约：0 / 1 / 2 条，覆盖「最多 2 条」的规则
+            int activeCount = 0;
+            if (!isDemoStudent) {
+                int rem = studentIdx % 3;
+                activeCount = rem == 0 ? 2 : rem == 1 ? 1 : 0;
+            }
+            for (int k = 0; k < activeCount && slotIdx < mainSlots.size(); k++) {
                 CoachSchedule s = mainSlots.get(slotIdx % mainSlots.size());
                 slotIdx += 2;
-                if (scheduleMapper.findById(s.getId()).getBookedCount() == 0) {
-                    String status = studentIdx % 4 == 0 ? "待确认" : "已确认";
-                    Booking b = new Booking();
-                    b.setStudentId(st.getId());
-                    b.setScheduleId(s.getId());
-                    b.setStatus(status);
-                    bookingMapper.insert(b);
-                    scheduleMapper.updateBooked(s.getId(), 1, "已满");
-                }
+                if (scheduleMapper.findById(s.getId()).getBookedCount() > 0) continue;
+                Booking b = new Booking();
+                b.setStudentId(st.getId());
+                b.setScheduleId(s.getId());
+                b.setStatus(k == 0 ? "待确认" : "已确认");
+                bookingMapper.insert(b);
+                scheduleMapper.updateBooked(s.getId(), 1, "已满");
             }
 
-            // 2) 1~2 条历史记录（不占用容量，不显示为「已预约」）
-            int historyCount = studentIdx % 2 == 0 ? 2 : 1;
-            for (int k = 0; k < historyCount && slotIdx < mainSlots.size(); k++) {
-                CoachSchedule s = mainSlots.get(slotIdx % mainSlots.size());
-                slotIdx += 2;
-                try {
-                    Booking b = new Booking();
-                    b.setStudentId(st.getId());
-                    b.setScheduleId(s.getId());
-                    b.setStatus(historyStatuses[(studentIdx + k) % historyStatuses.length]);
-                    bookingMapper.insert(b);
-                } catch (Exception ignore) {
-                    // 唯一约束（同一学员同一时段）冲突时跳过
+            // 2) 历史记录（不占用容量，不显示为「已预约」）
+            if (!isDemoStudent) {
+                int historyCount = studentIdx % 2 == 0 ? 2 : 1;
+                for (int k = 0; k < historyCount && slotIdx < mainSlots.size(); k++) {
+                    CoachSchedule s = mainSlots.get(slotIdx % mainSlots.size());
+                    slotIdx += 2;
+                    try {
+                        Booking b = new Booking();
+                        b.setStudentId(st.getId());
+                        b.setScheduleId(s.getId());
+                        b.setStatus(historyStatuses[(studentIdx + k) % historyStatuses.length]);
+                        bookingMapper.insert(b);
+                    } catch (Exception ignore) {
+                        // 唯一约束（同一学员同一时段）冲突时跳过
+                    }
                 }
             }
             studentIdx++;
         }
 
         /* ==================== 7. 学时记录（各科目覆盖不同进度） ==================== */
-        // 主学员：科目一已满、科目二接近满、科目三进行中、科目四未开始
+        // 主学员：科目一已满、科目二接近满、科目三已满、科目四未开始
+        // （科目三学到 24 学时是刻意留的：学时达标但尚未报名科三，
+        //   便于演示「按科目顺序报名」以及成功后科目四才会放行）
         insertHours(studentMapper.findById(mainStudent.getId()), coach.getId(), "1",
                 "12.0", today.minusDays(50));
         insertHours(studentMapper.findById(mainStudent.getId()), coach.getId(), "2",
                 "20.0", today.minusDays(20));
         insertHours(studentMapper.findById(mainStudent.getId()), coach.getId(), "3",
-                "10.0", today.minusDays(10));
+                "24.0", today.minusDays(10));
         // 待审核记录，用于演示管理员审核
         hoursMapper.insert(hours(mainStudent.getId(), coach.getId(), "3",
                 new BigDecimal("2.0"), today.minusDays(1), "待审核"));

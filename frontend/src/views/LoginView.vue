@@ -145,7 +145,7 @@ function onForgot() {
 
       <div class="login__row">
         <el-checkbox :model-value="true">记住我</el-checkbox>
-        <el-link type="primary" :underline="false" @click="onForgot">忘记密码？</el-link>
+        <el-link type="primary" underline="never" @click="onForgot">忘记密码？</el-link>
       </div>
 
       <el-button
@@ -255,7 +255,8 @@ function onForgot() {
   cursor: pointer;
   text-align: left;
   font-family: inherit;
-  transition: all 0.2s var(--ease-out);
+  transition: border-color 0.2s var(--ease-out), background-color 0.2s var(--ease-out),
+    transform 0.2s var(--ease-out);
 }
 
 .account:hover {

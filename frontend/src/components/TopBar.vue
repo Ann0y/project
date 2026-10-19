@@ -28,7 +28,7 @@ const currentRole = computed(() =>
   auth.isAuthenticated ? auth.role : DEFAULT_ROLE,
 )
 
-/** 只保留当前角色的分组 —— 其余角色的标签直接隐藏 */
+/** 只保留当前角色的分组 ： 其余角色的标签直接隐藏 */
 const visibleGroups = computed(() =>
   NAV_GROUPS.filter((group) => group.role === currentRole.value),
 )
@@ -225,8 +225,9 @@ async function onUserCommand(command) {
 }
 
 .nav-link--active {
-  background: var(--accent);
-  color: var(--text-inverse);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 600;
 }
 
 /* 右侧 */
@@ -336,8 +337,9 @@ async function onUserCommand(command) {
 }
 
 .drawer-link--active {
-  background: var(--accent);
-  color: var(--text-inverse);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 600;
 }
 
 /* 响应式 */

@@ -4,7 +4,7 @@ import { loginApi, registerApi, logoutApi, getMeApi, changePasswordApi } from '@
 import { ROLES } from '@/config/roles'
 
 /**
- * 登录态 Store —— 对接后端 Session（JSESSIONID）
+ * 登录态 Store ： 对接后端 Session（JSESSIONID）
  * ---------------------------------------------------------------------------
  * 登录态由后端 Session 承载，本 store 只缓存当前用户信息用于渲染。
  * 刷新页面时通过 GET /api/auth/me 恢复（main.js 中 await 后再挂载路由）。

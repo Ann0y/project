@@ -1,0 +1,19 @@
+# 依赖
+node_modules/
+
+# 构建产物
+frontend/dist/
+backend/target/
+
+# 本地缓存与工具目录
+.npm-cache/
+.chrome-profile/
+
+# 编辑器与系统文件
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# 日志
+*.log

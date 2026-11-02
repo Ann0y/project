@@ -8,6 +8,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import PageHeader from '../../components/PageHeader.vue'
+import ErrorState from '../../components/ErrorState.vue'
 import { statusTone } from '../../utils/status'
 import { shortTime } from '../../utils/format'
 import { useDataStore } from '../../stores/data'
@@ -15,7 +16,10 @@ import { SUBJECTS, subjectShort } from '../../data/demo'
 
 const data = useDataStore()
 const loading = ref(false)
-const registering = ref(false)
+const failed = ref(false)
+
+/** 正在报名的考试计划 id：只为对应卡片显示 loading，不影响其他卡片 */
+const registeringId = ref(null)
 
 /** 我的考试记录 */
 const rows = computed(() => data.examRecords)
@@ -23,9 +27,10 @@ const rows = computed(() => data.examRecords)
 /** 可报名的考试计划 */
 const openPlans = computed(() => data.examPlans)
 
-/** 报名条件：学时达标 + 上一科目已报名 + 本科目未合格 + 本场次未报名 */
+/** 报名条件：学时达标 + 上一科目已报名 + 本科目未合格 + 本场次未报名 + 名额未满 */
 function canRegister(plan) {
   return !plan.registered && !plan.passed && plan.qualified && plan.prerequisiteMet !== false
+    && plan.enrolledCount < plan.capacity
 }
 
 /** 按钮文案：把「不能报」的原因直接写在按钮上 */
@@ -33,15 +38,18 @@ function actionLabel(plan) {
   if (plan.registered) return '已报名'
   if (plan.passed) return '已合格'
   if (plan.prerequisiteMet === false) return `需先报名${plan.prerequisiteName ?? '上一科目'}`
+  if (plan.enrolledCount >= plan.capacity) return '名额已满'
   if (!plan.qualified) return '学时不足'
   return '报名'
 }
 
 async function reload() {
   loading.value = true
+  failed.value = false
   try {
     await Promise.all([data.loadMyExamRecords(), data.loadOpenPlans()])
   } catch (e) {
+    failed.value = true
     ElMessage.error(e.message || '加载考试数据失败')
   } finally {
     loading.value = false
@@ -61,9 +69,9 @@ async function register(plan) {
     return
   }
 
-  registering.value = true
+  registeringId.value = plan.id
   const result = await data.registerExam(plan.id)
-  registering.value = false
+  registeringId.value = null
 
   if (!result.ok) {
     ElMessage.warning(result.reason)
@@ -82,7 +90,10 @@ async function register(plan) {
       desc="查看考试安排与报名状态，以及各科目成绩与补考记录。"
     />
 
-    <div class="glass panel">
+    <ErrorState v-if="failed" message="考试数据加载失败，请检查后端服务后重试" @retry="reload" />
+
+    <template v-else>
+      <div class="glass panel">
       <div class="panel__head">
         <span class="panel__title">考试安排</span>
         <span class="panel__hint">报名前校验学时是否达标，且需按科目顺序报名</span>
@@ -110,7 +121,7 @@ async function register(plan) {
             size="small"
             :type="canRegister(plan) ? 'primary' : 'default'"
             :disabled="!canRegister(plan)"
-            :loading="registering"
+            :loading="registeringId === plan.id"
             @click="register(plan)"
           >
             {{ actionLabel(plan) }}
@@ -151,6 +162,7 @@ async function register(plan) {
         </el-table-column>
       </el-table>
     </div>
+    </template>
   </section>
 </template>
 

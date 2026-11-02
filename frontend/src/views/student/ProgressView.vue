@@ -10,8 +10,11 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import PageHeader from '../../components/PageHeader.vue'
+import ErrorState from '../../components/ErrorState.vue'
 import BaseChart from '../../components/BaseChart.vue'
 import { chartTheme } from '../../utils/chart'
+import { statusTone } from '../../utils/status'
+import { timeRange } from '../../utils/format'
 import { useAuthStore } from '../../stores/auth'
 import { useDataStore } from '../../stores/data'
 import { subjectShort } from '../../data/demo'
@@ -28,15 +31,23 @@ const guestSlots = [
   { label: '已学 / 剩余学时' },
 ]
 
-onMounted(async () => {
+/** 预约占用中（待确认/已确认）的状态 */
+const ACTIVE_STATUS = ['待确认', '已确认']
+
+onMounted(load)
+
+/** 加载进度 + 预约（预约用于首页「临近培训提醒」，须保证最新），可重试 */
+async function load() {
   if (!auth.isAuthenticated) return
+  failed.value = false
   try {
-    await data.loadProgress()
+    // 预约每次都重新拉：教练可能在后台确认/改期，用旧缓存算提醒会误导
+    await Promise.all([data.loadProgress(), data.loadMyBookings()])
   } catch (e) {
     failed.value = true
     ElMessage.error(e.message || '加载培训进度失败')
   }
-})
+}
 
 const student = computed(() => data.progress)
 
@@ -53,6 +64,42 @@ const subjects = computed(() =>
 const doneHours = computed(() => Number(student.value?.doneHours ?? 0))
 const remainHours = computed(() => Number(student.value?.remainHours ?? 0))
 const percent = computed(() => student.value?.percent ?? 0)
+
+/* -------- 临近培训提醒：最近一条「今天及以后」的未完成预约 -------- */
+
+/** 本地时区的 yyyy-MM-dd（与 TrainingView 保持一致，不用 toISOString） */
+function localDateKey(d) {
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
+}
+
+/** 每次计算都取当天，避免页面跨天停留后日期偏移 */
+const nextBooking = computed(() => {
+  const todayKey = localDateKey(new Date())
+  const upcoming = data.bookings
+    .filter(
+      (b) => ACTIVE_STATUS.includes(b.status) && b.scheduleDate && b.scheduleDate >= todayKey,
+    )
+    .sort((a, b) =>
+      a.scheduleDate === b.scheduleDate
+        ? String(a.startTime).localeCompare(String(b.startTime))
+        : a.scheduleDate < b.scheduleDate ? -1 : 1,
+    )
+  return upcoming[0] ?? null
+})
+
+/** 距离最近预约的天数标签：今天 / 明天 / 后天 / N 天后 */
+function daysLabel(dateKey) {
+  const todayKey = localDateKey(new Date())
+  const diff = Math.round((new Date(`${dateKey}T00:00:00`) - new Date(`${todayKey}T00:00:00`)) / 86400000)
+  if (diff === 0) return '今天'
+  if (diff === 1) return '明天'
+  if (diff === 2) return '后天'
+  return `${diff} 天后`
+}
+
+const nextBookingIn = computed(() => (nextBooking.value ? daysLabel(nextBooking.value.scheduleDate) : ''))
 
 /** 整体进度环形图 */
 const gaugeOption = computed(() => {
@@ -201,8 +248,26 @@ const subjectOption = computed(() => {
             <span class="info__k">已学 / 剩余学时</span>
             <span class="info__v">{{ doneHours }} / {{ remainHours }}</span>
           </div>
+          <div class="info">
+            <span class="info__k">缴费状态</span>
+            <span class="info__v">
+              <span class="chip" :class="statusTone(student.paymentStatus ?? '未缴')">
+                {{ student.paymentStatus ?? '未缴' }}
+              </span>
+            </span>
+          </div>
         </div>
       </div>
+
+      <!-- 临近培训提醒：最近一条今天及以后的未完成预约 -->
+      <RouterLink v-if="nextBooking" class="upcoming" :to="{ name: 'training' }">
+        <span class="chip chip--pending">{{ nextBookingIn }}</span>
+        <span class="upcoming__text">
+          {{ nextBooking.scheduleDate }} {{ timeRange(nextBooking.startTime, nextBooking.endTime) }}
+          开始培训（{{ nextBooking.status }}）
+        </span>
+        <span class="upcoming__more">去约车 ›</span>
+      </RouterLink>
 
       <!-- 图表 -->
       <div class="grid grid--sidebar">
@@ -228,7 +293,7 @@ const subjectOption = computed(() => {
       </div>
     </template>
 
-    <el-empty v-else-if="failed" description="加载失败，请检查后端服务是否启动" />
+    <ErrorState v-else-if="failed" message="培训进度加载失败，请检查后端服务后重试" @retry="load" />
 
     <el-empty v-else description="暂无培训进度数据" />
   </section>
@@ -322,6 +387,35 @@ const subjectOption = computed(() => {
   margin-top: 8px;
 }
 
+/* 临近培训提醒条 */
+.upcoming {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-base);
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+}
+
+.upcoming:hover {
+  border-color: var(--border-strong);
+}
+
+.upcoming__text {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.upcoming__more {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 @media (max-width: 768px) {
   .guest__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -329,6 +423,10 @@ const subjectOption = computed(() => {
 
   .info-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .upcoming {
+    flex-wrap: wrap;
   }
 }
 </style>

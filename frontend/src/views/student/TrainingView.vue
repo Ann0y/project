@@ -180,6 +180,20 @@ const myBookings = computed(() =>
 const coachName = computed(() => data.progress?.coachName ?? '')
 const vehiclePlate = computed(() => data.progress?.vehiclePlate ?? '')
 
+/** 距某日期的天数标签：今天 / 明天 / 后天 / N 天后（过期不显示） */
+function daysLabel(dateKey) {
+  const base = new Date()
+  base.setHours(0, 0, 0, 0)
+  const diff = Math.round((new Date(`${dateKey}T00:00:00`) - base) / 86400000)
+  if (diff < 0) return ''
+  if (diff === 0) return '今天'
+  if (diff === 1) return '明天'
+  if (diff === 2) return '后天'
+  return `${diff} 天后`
+}
+
+const dayLabelOf = (b) => daysLabel(b.scheduleDate)
+
 /** 当天可约 / 总时段数，用于提示 */
 const daySummary = computed(() => {
   const options = slotOptions.value
@@ -296,6 +310,7 @@ async function cancel(booking) {
         </div>
         <ul class="booking-block__list">
           <li v-for="b in activeBookings" :key="b.id" class="booking-block__item">
+            <span v-if="dayLabelOf(b)" class="chip chip--pending">{{ dayLabelOf(b) }}</span>
             <span>
               {{ b.scheduleDate }} {{ timeRange(b.startTime, b.endTime) }}
             </span>

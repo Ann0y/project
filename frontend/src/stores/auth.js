@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { loginApi, registerApi, logoutApi, getMeApi, changePasswordApi } from '@/api'
 import { ROLES } from '@/config/roles'
+import { useDataStore } from '@/stores/data'
 
 /**
  * 登录态 Store ： 对接后端 Session（JSESSIONID）
@@ -51,6 +52,8 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     try {
       const u = await loginApi({ username: username.trim(), password })
+      // 换账号登录前清掉上一位用户缓存的所有业务数据
+      useDataStore().reset()
       persist(u)
       return u
     } finally {
@@ -81,6 +84,8 @@ export const useAuthStore = defineStore('auth', () => {
       // 忽略登出接口异常，前端一律清除本地态
     }
     persist(null)
+    // 清空业务数据缓存，避免登出后（或下一位用户登录前）读到旧数据
+    useDataStore().reset()
   }
 
   /**

@@ -447,12 +447,45 @@ export const useDataStore = defineStore('data', () => {
     }
   }
 
+  /**
+   * 登出 / 更换账号时清空全部缓存。
+   * 各页面对 progress 等数据有「已缓存就不再请求」的优化，若不重置，
+   * 新登录的用户会直接看到上一位用户的预约、缴费等数据。
+   */
+  function reset() {
+    loading.value = false
+    // 学员端
+    progress.value = null
+    schedules.value = []
+    bookings.value = []
+    examPlans.value = []
+    examRecords.value = []
+    payments.value = []
+    // 教练端
+    workbench.value = null
+    hoursRecords.value = []
+    students.value = []
+    // 管理端
+    dashboard.value = null
+    report.value = null
+    coaches.value = []
+    vehicles.value = []
+    users.value = []
+    courses.value = []
+    studentPage.value = { list: [], total: 0, page: 1, size: 10 }
+    hoursPage.value = { list: [], total: 0, page: 1, size: 10 }
+    bookingPage.value = { list: [], total: 0, page: 1, size: 10 }
+    examScorePage.value = { list: [], total: 0, page: 1, size: 10 }
+    userPage.value = { list: [], total: 0, page: 1, size: 10 }
+  }
+
   return {
     loading,
     progress, schedules, bookings, examPlans, examRecords, payments,
     workbench, hoursRecords, students,
     dashboard, report, coaches, vehicles, users, courses,
     studentPage, hoursPage, bookingPage, examScorePage, userPage,
+    reset,
     // 学员端
     loadProgress, loadMySchedules, loadMyBookings, loadMyExamRecords,
     loadOpenPlans, loadMyPayments,

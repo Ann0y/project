@@ -56,6 +56,10 @@ public interface UserMapper {
     @Update("UPDATE sys_user SET password = #{password} WHERE id = #{id}")
     int updatePassword(@Param("id") Long id, @Param("password") String password);
 
+    /** 学员在个人中心修改姓名（只改显示名，不影响角色 / 状态） */
+    @Update("UPDATE sys_user SET name = #{name} WHERE id = #{id}")
+    int updateName(@Param("id") Long id, @Param("name") String name);
+
     /** 逻辑删除 */
     @Update("UPDATE sys_user SET del_flag = 1 WHERE id = #{id}")
     int softDelete(Long id);

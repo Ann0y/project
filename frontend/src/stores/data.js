@@ -24,6 +24,7 @@ export const useDataStore = defineStore('data', () => {
   const examPlans = ref([])          // 考试计划
   const examRecords = ref([])        // 考试记录 / 成绩
   const payments = ref([])
+  const myHoursRecords = ref([])     // 我的学时明细（含审核状态）
 
   // 教练端
   const workbench = ref(null)
@@ -72,14 +73,14 @@ export const useDataStore = defineStore('data', () => {
     return examRecords.value
   }
 
-  async function loadOpenPlans() {
-    examPlans.value = await api.openExamPlansApi()
-    return examPlans.value
-  }
-
   async function loadMyPayments() {
     payments.value = await api.myPaymentsApi()
     return payments.value
+  }
+
+  async function loadMyHours(params = {}) {
+    myHoursRecords.value = await api.myHoursApi(params)
+    return myHoursRecords.value
   }
 
   /* ============================== 学员端写操作 ============================== */
@@ -103,9 +104,36 @@ export const useDataStore = defineStore('data', () => {
     }
   }
 
-  async function registerExam(planId) {
+  async function cancelBooking(bookingId, reason) {
     try {
-      await api.registerExamApi(planId)
+      await api.cancelBookingApi(bookingId, reason)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, reason: e.message }
+    }
+  }
+
+  async function rescheduleBooking(bookingId, scheduleId) {
+    try {
+      await api.rescheduleBookingApi(bookingId, scheduleId)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, reason: e.message }
+    }
+  }
+
+  async function deleteMyBooking(bookingId) {
+    try {
+      await api.deleteMyBookingApi(bookingId)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, reason: e.message }
+    }
+  }
+
+  async function payMyPayment(paymentId, payMethod) {
+    try {
+      await api.payMyPaymentApi(paymentId, payMethod)
       return { ok: true }
     } catch (e) {
       return { ok: false, reason: e.message }
@@ -461,6 +489,7 @@ export const useDataStore = defineStore('data', () => {
     examPlans.value = []
     examRecords.value = []
     payments.value = []
+    myHoursRecords.value = []
     // 教练端
     workbench.value = null
     hoursRecords.value = []
@@ -481,15 +510,16 @@ export const useDataStore = defineStore('data', () => {
 
   return {
     loading,
-    progress, schedules, bookings, examPlans, examRecords, payments,
+    progress, schedules, bookings, examPlans, examRecords, payments, myHoursRecords,
     workbench, hoursRecords, students,
     dashboard, report, coaches, vehicles, users, courses,
     studentPage, hoursPage, bookingPage, examScorePage, userPage,
     reset,
     // 学员端
     loadProgress, loadMySchedules, loadMyBookings, loadMyExamRecords,
-    loadOpenPlans, loadMyPayments,
-    createBooking, setBookingStatus, registerExam,
+    loadMyPayments, loadMyHours,
+    createBooking, setBookingStatus, cancelBooking, rescheduleBooking,
+    deleteMyBooking, payMyPayment,
     // 教练端
     loadWorkbench, loadCoachSchedules, loadCoachBookings, loadCoachHours, loadCoachStudents,
     saveSchedule, removeSchedule, changeCoachBookingStatus, createHoursRecord,

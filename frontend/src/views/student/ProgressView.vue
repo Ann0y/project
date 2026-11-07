@@ -9,6 +9,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Calendar, Clock, Tickets, Wallet } from '@element-plus/icons-vue'
 import PageHeader from '../../components/PageHeader.vue'
 import ErrorState from '../../components/ErrorState.vue'
 import BaseChart from '../../components/BaseChart.vue'
@@ -41,8 +42,13 @@ async function load() {
   if (!auth.isAuthenticated) return
   failed.value = false
   try {
-    // 预约每次都重新拉：教练可能在后台确认/改期，用旧缓存算提醒会误导
-    await Promise.all([data.loadProgress(), data.loadMyBookings()])
+    // 预约 / 成绩 / 缴费每次都重新拉：教练确认、管理员录分、缴费状态变化都要及时反映
+    await Promise.all([
+      data.loadProgress(),
+      data.loadMyBookings(),
+      data.loadMyExamRecords(),
+      data.loadMyPayments(),
+    ])
   } catch (e) {
     failed.value = true
     ElMessage.error(e.message || '加载培训进度失败')
@@ -64,6 +70,43 @@ const subjects = computed(() =>
 const doneHours = computed(() => Number(student.value?.doneHours ?? 0))
 const remainHours = computed(() => Number(student.value?.remainHours ?? 0))
 const percent = computed(() => student.value?.percent ?? 0)
+const requiredHours = computed(() => Number(student.value?.requiredHours ?? 0))
+
+/** 已通过科目数（按考试记录去重，合格即算通过） */
+const passedSubjects = computed(
+  () => new Set(data.examRecords.filter((r) => r.status === '合格').map((r) => r.subjectCode)).size,
+)
+/** 待考 / 补考中场次 */
+const pendingExams = computed(
+  () => data.examRecords.filter((r) => r.status === '待考' || r.status === '补考中').length,
+)
+/** 未完成预约数 */
+const activeBookingCount = computed(
+  () => data.bookings.filter((b) => ACTIVE_STATUS.includes(b.status)).length,
+)
+
+/** 待缴费用 */
+const unpaidPayments = computed(() => data.payments.filter((p) => p.status === '未缴'))
+const unpaidTotal = computed(() =>
+  unpaidPayments.value.reduce((acc, p) => acc + Number(p.amount ?? 0), 0),
+)
+
+/** 首页快捷入口 */
+const quickActions = [
+  { name: 'training', title: '预约培训', desc: '选择教练与时段', icon: Calendar },
+  { name: 'hours', title: '我的学时', desc: '查看学时审核明细', icon: Clock },
+  { name: 'exams', title: '考试与成绩', desc: '查看各科考试成绩', icon: Tickets },
+  { name: 'payments', title: '学费缴纳', desc: '缴纳待缴费用', icon: Wallet },
+]
+
+function money(value) {
+  return Number(value ?? 0).toFixed(2)
+}
+
+function hoursText(value) {
+  const n = Number(value ?? 0)
+  return Number.isInteger(n) ? String(n) : n.toFixed(1)
+}
 
 /* -------- 临近培训提醒：最近一条「今天及以后」的未完成预约 -------- */
 
@@ -185,14 +228,19 @@ const subjectOption = computed(() => {
       :title="auth.isAuthenticated ? `${auth.displayName}，欢迎回来` : '培训进度（演示视图）'"
       :desc="
         auth.isAuthenticated
-          ? '查看报名状态、学时完成情况与各科目进度。'
+          ? '查看报名状态、学时完成情况、考试成绩与待缴费用。'
           : '首页默认面向学员展示，登录后可查看个人数据并在线约车。'
       "
     >
       <template #actions>
-        <RouterLink v-if="auth.isAuthenticated" :to="{ name: 'training' }">
-          <el-button type="primary">去约车</el-button>
-        </RouterLink>
+        <template v-if="auth.isAuthenticated">
+          <RouterLink :to="{ name: 'hours' }">
+            <el-button plain>查看学时明细</el-button>
+          </RouterLink>
+          <RouterLink :to="{ name: 'training' }">
+            <el-button type="primary">去约车</el-button>
+          </RouterLink>
+        </template>
         <RouterLink v-else :to="{ name: 'login', query: { need: 'student' } }">
           <el-button type="primary">登录学员账号</el-button>
         </RouterLink>
@@ -259,6 +307,50 @@ const subjectOption = computed(() => {
         </div>
       </div>
 
+      <!-- 关键指标 -->
+      <div class="home-stats">
+        <div class="glass stat-card">
+          <span class="stat-card__label">已学学时</span>
+          <span class="stat-card__value">
+            {{ hoursText(doneHours) }}<small>/ {{ hoursText(requiredHours) }} 学时</small>
+          </span>
+          <span class="stat-card__foot">仅统计审核通过的培训记录</span>
+        </div>
+        <div class="glass stat-card">
+          <span class="stat-card__label">剩余学时</span>
+          <span class="stat-card__value">{{ hoursText(remainHours) }}<small>学时</small></span>
+          <RouterLink class="stat-card__link" :to="{ name: 'hours' }">查看学时明细 ›</RouterLink>
+        </div>
+        <div class="glass stat-card">
+          <span class="stat-card__label">整体完成率</span>
+          <span class="stat-card__value">{{ percent }}<small>%</small></span>
+          <span class="stat-card__foot">
+            {{ student.graduationReady ? '已满足结业条件' : '未满足结业条件' }}
+          </span>
+        </div>
+        <div class="glass stat-card">
+          <span class="stat-card__label">考试进度</span>
+          <span class="stat-card__value">{{ passedSubjects }}<small>/ 4 科已通过</small></span>
+          <RouterLink class="stat-card__link" :to="{ name: 'exams' }">
+            {{ pendingExams > 0 ? `待考 ${pendingExams} 场 ›` : '查看考试成绩 ›' }}
+          </RouterLink>
+        </div>
+      </div>
+
+      <!-- 待缴学费提醒 -->
+      <RouterLink v-if="unpaidPayments.length" class="fee-alert" :to="{ name: 'payments' }">
+        <span class="fee-alert__icon">
+          <el-icon><Wallet /></el-icon>
+        </span>
+        <span class="fee-alert__body">
+          <span class="fee-alert__title">
+            你有 {{ unpaidPayments.length }} 笔待缴费用，合计 ¥{{ money(unpaidTotal) }}
+          </span>
+          <span class="fee-alert__desc">点击前往学费缴纳，在线完成缴费后状态会实时更新</span>
+        </span>
+        <span class="fee-alert__action">去缴费 ›</span>
+      </RouterLink>
+
       <!-- 临近培训提醒：最近一条今天及以后的未完成预约 -->
       <RouterLink v-if="nextBooking" class="upcoming" :to="{ name: 'training' }">
         <span class="chip chip--pending">{{ nextBookingIn }}</span>
@@ -268,6 +360,31 @@ const subjectOption = computed(() => {
         </span>
         <span class="upcoming__more">去约车 ›</span>
       </RouterLink>
+
+      <!-- 快捷入口 -->
+      <div class="glass panel">
+        <div class="panel__head">
+          <span class="panel__title">快捷入口</span>
+          <span class="panel__hint">常用操作一键直达</span>
+        </div>
+        <div class="quick-grid">
+          <RouterLink
+            v-for="action in quickActions"
+            :key="action.name"
+            class="quick-card"
+            :to="{ name: action.name }"
+          >
+            <span class="quick-card__icon">
+              <el-icon><component :is="action.icon" /></el-icon>
+            </span>
+            <span class="quick-card__body">
+              <span class="quick-card__title">{{ action.title }}</span>
+              <span class="quick-card__desc">{{ action.desc }}</span>
+            </span>
+            <span class="quick-card__arrow">›</span>
+          </RouterLink>
+        </div>
+      </div>
 
       <!-- 图表 -->
       <div class="grid grid--sidebar">
@@ -414,6 +531,154 @@ const subjectOption = computed(() => {
 .upcoming__more {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+/* 首页指标卡 */
+.home-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.home-stats .stat-card {
+  gap: 8px;
+}
+
+.stat-card__link {
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.stat-card__link:hover {
+  text-decoration: underline;
+}
+
+/* 待缴学费提醒 */
+.fee-alert {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+}
+
+.fee-alert:hover {
+  border-color: var(--accent);
+}
+
+.fee-alert__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--accent);
+  font-size: 18px;
+}
+
+.fee-alert__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.fee-alert__title {
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.fee-alert__desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.fee-alert__action {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* 快捷入口 */
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.quick-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border-base);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.quick-card:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+.quick-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--white);
+  border: 1px solid var(--border-base);
+  color: var(--accent);
+  font-size: 16px;
+  flex: none;
+}
+
+.quick-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.quick-card__title {
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.quick-card__desc {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quick-card__arrow {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: 15px;
+}
+
+@media (max-width: 1024px) {
+  .home-stats,
+  .quick-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 768px) {

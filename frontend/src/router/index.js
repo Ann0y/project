@@ -50,10 +50,22 @@ const routes = [
     meta: { title: '培训与约车', role: 'student' },
   },
   {
+    path: '/hours',
+    name: 'hours',
+    component: () => import('../views/student/HoursView.vue'),
+    meta: { title: '我的学时', role: 'student' },
+  },
+  {
     path: '/exams',
     name: 'exams',
     component: () => import('../views/student/ExamView.vue'),
     meta: { title: '我的考试与成绩', role: 'student' },
+  },
+  {
+    path: '/payments',
+    name: 'payments',
+    component: () => import('../views/student/PaymentView.vue'),
+    meta: { title: '学费缴纳', role: 'student' },
   },
   {
     path: '/profile',

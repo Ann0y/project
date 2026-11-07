@@ -19,11 +19,17 @@ export const myProgressApi = () => request.get('/students/me/progress')
 export const mySchedulesApi = (date) => request.get('/schedules/mine', { params: { date } })
 export const myBookingsApi = (params) => request.get('/bookings/my', { params })
 export const createBookingApi = (scheduleId) => request.post('/bookings', { scheduleId })
-export const cancelBookingApi = (id) => request.patch(`/bookings/${id}/cancel`)
+export const cancelBookingApi = (id, reason) =>
+  request.patch(`/bookings/${id}/cancel`, { reason })
+export const rescheduleBookingApi = (id, scheduleId) =>
+  request.patch(`/bookings/${id}/reschedule`, { scheduleId })
+export const deleteMyBookingApi = (id) => request.delete(`/bookings/${id}`)
 export const myScoresApi = (params) => request.get('/exam-scores/my', { params })
-export const openExamPlansApi = () => request.get('/exam-plans/open')
-export const registerExamApi = (planId) => request.post(`/exam-plans/${planId}/register`)
 export const myPaymentsApi = () => request.get('/payments/my')
+export const payMyPaymentApi = (id, payMethod) =>
+  request.post(`/payments/my/${id}/pay`, { payMethod })
+export const myHoursApi = (params) => request.get('/hours/my', { params })
+export const updateMyProfileApi = (data) => request.put('/students/me/profile', data)
 
 /* -------------------------------- 教练端 -------------------------------- */
 

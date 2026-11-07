@@ -1,6 +1,13 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { loginApi, registerApi, logoutApi, getMeApi, changePasswordApi } from '@/api'
+import {
+  loginApi,
+  registerApi,
+  logoutApi,
+  getMeApi,
+  changePasswordApi,
+  updateMyProfileApi,
+} from '@/api'
 import { ROLES } from '@/config/roles'
 import { useDataStore } from '@/stores/data'
 
@@ -77,6 +84,14 @@ export const useAuthStore = defineStore('auth', () => {
     return true
   }
 
+  /** 修改本人资料（学员：姓名 + 联系电话） */
+  async function updateProfile({ name, phone }) {
+    const next = await updateMyProfileApi({ name, phone })
+    // 后端返回最新的 UserVO，合并回本地缓存，顶部导航立即显示新姓名
+    persist({ ...user.value, ...next })
+    return next
+  }
+
   async function logout() {
     try {
       await logoutApi()
@@ -119,6 +134,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     changePassword,
+    updateProfile,
     logout,
     fetchCurrentUser,
   }

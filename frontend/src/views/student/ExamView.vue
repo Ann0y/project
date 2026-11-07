@@ -2,55 +2,54 @@
 /**
  * F04 我的考试与成绩（学员端）
  * ---------------------------------------------------------------------------
- * 需求 F04：查看考试安排与报名状态，按科目查询成绩与补考记录。
- * 数据：GET /api/exam-scores/my、GET /api/exam-plans/open
+ * 学员端只读：查看各科目考试成绩与补考记录。
+ * 考试报名由管理员在后台统一安排，学员端不再提供报名入口。
+ * 数据：GET /api/exam-scores/my
  */
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import PageHeader from '../../components/PageHeader.vue'
 import ErrorState from '../../components/ErrorState.vue'
 import { statusTone } from '../../utils/status'
-import { shortTime } from '../../utils/format'
 import { useDataStore } from '../../stores/data'
-import { SUBJECTS, subjectShort } from '../../data/demo'
+import { SUBJECTS, EXAM_STATUS, subjectShort } from '../../data/demo'
 
 const data = useDataStore()
 const loading = ref(false)
 const failed = ref(false)
 
-/** 正在报名的考试计划 id：只为对应卡片显示 loading，不影响其他卡片 */
-const registeringId = ref(null)
-
 /** 我的考试记录 */
 const rows = computed(() => data.examRecords)
 
-/** 可报名的考试计划 */
-const openPlans = computed(() => data.examPlans)
+/* ------------------------------ 筛选 ------------------------------ */
+const subjectCode = ref('')
+const status = ref('')
 
-/** 报名条件：学时达标 + 上一科目已报名 + 本科目未合格 + 本场次未报名 + 名额未满 */
-function canRegister(plan) {
-  return !plan.registered && !plan.passed && plan.qualified && plan.prerequisiteMet !== false
-    && plan.enrolledCount < plan.capacity
-}
+const filteredRows = computed(() =>
+  rows.value.filter(
+    (r) =>
+      (!subjectCode.value || r.subjectCode === subjectCode.value) &&
+      (!status.value || r.status === status.value),
+  ),
+)
 
-/** 按钮文案：把「不能报」的原因直接写在按钮上 */
-function actionLabel(plan) {
-  if (plan.registered) return '已报名'
-  if (plan.passed) return '已合格'
-  if (plan.prerequisiteMet === false) return `需先报名${plan.prerequisiteName ?? '上一科目'}`
-  if (plan.enrolledCount >= plan.capacity) return '名额已满'
-  if (!plan.qualified) return '学时不足'
-  return '报名'
-}
+/* ------------------------------ 汇总 ------------------------------ */
+const passedSubjects = computed(
+  () => new Set(rows.value.filter((r) => r.status === '合格').map((r) => r.subjectCode)).size,
+)
+const pendingCount = computed(
+  () => rows.value.filter((r) => r.status === '待考' || r.status === '补考中').length,
+)
+const failedCount = computed(() => rows.value.filter((r) => r.status === '不合格').length)
 
 async function reload() {
   loading.value = true
   failed.value = false
   try {
-    await Promise.all([data.loadMyExamRecords(), data.loadOpenPlans()])
+    await data.loadMyExamRecords()
   } catch (e) {
     failed.value = true
-    ElMessage.error(e.message || '加载考试数据失败')
+    ElMessage.error(e.message || '加载考试成绩失败')
   } finally {
     loading.value = false
   }
@@ -58,27 +57,14 @@ async function reload() {
 
 onMounted(reload)
 
-async function register(plan) {
-  try {
-    await ElMessageBox.confirm(
-      `${plan.examDate} ${shortTime(plan.examTime)} · ${plan.venue}`,
-      '确认报名该场考试？',
-      { confirmButtonText: '确认报名', cancelButtonText: '取消', type: 'info' },
-    )
-  } catch {
-    return
-  }
+function resetFilter() {
+  subjectCode.value = ''
+  status.value = ''
+}
 
-  registeringId.value = plan.id
-  const result = await data.registerExam(plan.id)
-  registeringId.value = null
-
-  if (!result.ok) {
-    ElMessage.warning(result.reason)
-    return
-  }
-  ElMessage.success('考试报名已提交')
-  await reload()
+function attemptText(attemptNo) {
+  const n = Number(attemptNo ?? 1)
+  return n <= 1 ? '初考' : `补考${n - 1}`
 }
 </script>
 
@@ -87,129 +73,131 @@ async function register(plan) {
     <PageHeader
       eyebrow="学员端"
       title="我的考试与成绩"
-      desc="查看考试安排与报名状态，以及各科目成绩与补考记录。"
+      desc="查看各科目考试成绩与补考记录；考试安排由驾校统一组织。"
     />
 
-    <ErrorState v-if="failed" message="考试数据加载失败，请检查后端服务后重试" @retry="reload" />
+    <ErrorState v-if="failed" message="考试成绩加载失败，请检查后端服务后重试" @retry="reload" />
 
     <template v-else>
-      <div class="glass panel">
-      <div class="panel__head">
-        <span class="panel__title">考试安排</span>
-        <span class="panel__hint">报名前校验学时是否达标，且需按科目顺序报名</span>
-      </div>
-
-      <el-skeleton v-if="loading" :rows="2" animated />
-      <el-empty v-else-if="openPlans.length === 0" description="暂无可报名的考试计划" />
-
-      <div v-else class="plan-grid">
-        <div v-for="plan in openPlans" :key="plan.id" class="plan">
-          <span class="plan__subject">{{ plan.subjectName || subjectShort(plan.subjectCode) }}</span>
-          <span class="plan__venue">{{ plan.venue }}</span>
-          <span class="plan__time">{{ plan.examDate }} {{ shortTime(plan.examTime) }}</span>
-          <span class="u-dim plan__quota">
-            学时 {{ Number(plan.myHours ?? 0) }}/{{ Number(plan.requiredHours ?? 0) }} ·
-            名额 {{ plan.enrolledCount }}/{{ plan.capacity }}
+      <!-- 成绩汇总 -->
+      <div class="exam-stats">
+        <div class="glass exam-stat">
+          <span class="exam-stat__k">已通过科目</span>
+          <span class="exam-stat__v">{{ passedSubjects }}<small>/ 4</small></span>
+        </div>
+        <div class="glass exam-stat">
+          <span class="exam-stat__k">待考 / 补考中</span>
+          <span class="exam-stat__v">{{ pendingCount }}<small>场</small></span>
+        </div>
+        <div class="glass exam-stat">
+          <span class="exam-stat__k">不合格记录</span>
+          <span class="exam-stat__v" :class="{ 'exam-stat__v--danger': failedCount > 0 }">
+            {{ failedCount }}<small>条</small>
           </span>
-          <span
-            v-if="!plan.registered && !plan.passed && plan.prerequisiteMet === false"
-            class="plan__tip"
-          >
-            需先有{{ plan.prerequisiteName }}的报名记录
-          </span>
-          <el-button
-            size="small"
-            :type="canRegister(plan) ? 'primary' : 'default'"
-            :disabled="!canRegister(plan)"
-            :loading="registeringId === plan.id"
-            @click="register(plan)"
-          >
-            {{ actionLabel(plan) }}
-          </el-button>
         </div>
       </div>
-    </div>
 
-    <div class="glass panel">
-      <div class="panel__head">
-        <span class="panel__title">成绩明细</span>
+      <!-- 成绩明细 -->
+      <div class="glass panel">
+        <div class="panel__head">
+          <span class="panel__title">成绩明细</span>
+          <span class="panel__hint">共 {{ filteredRows.length }} 条记录</span>
+        </div>
+
+        <div class="query">
+          <el-select
+            v-model="subjectCode"
+            placeholder="全部科目"
+            clearable
+            style="width: 190px"
+          >
+            <el-option
+              v-for="s in SUBJECTS"
+              :key="s.code"
+              :label="s.short"
+              :value="s.code"
+            />
+          </el-select>
+          <el-select v-model="status" placeholder="全部状态" clearable style="width: 150px">
+            <el-option v-for="s in EXAM_STATUS" :key="s" :label="s" :value="s" />
+          </el-select>
+          <el-button plain @click="resetFilter">重置</el-button>
+        </div>
+
+        <el-skeleton v-if="loading" :rows="4" animated />
+        <el-empty v-else-if="filteredRows.length === 0" description="暂无考试成绩" />
+
+        <el-table v-else :data="filteredRows" stripe>
+          <el-table-column label="科目" width="120">
+            <template #default="{ row }">
+              {{ row.subjectName || subjectShort(row.subjectCode) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="venue" label="考场" min-width="160">
+            <template #default="{ row }">{{ row.venue ?? '-' }}</template>
+          </el-table-column>
+          <el-table-column label="考试日期" width="130">
+            <template #default="{ row }">{{ row.examDate ?? row.planDate ?? '待安排' }}</template>
+          </el-table-column>
+          <el-table-column label="次数" width="100">
+            <template #default="{ row }">{{ attemptText(row.attemptNo) }}</template>
+          </el-table-column>
+          <el-table-column label="成绩" width="90">
+            <template #default="{ row }">{{ row.score ?? '-' }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="110">
+            <template #default="{ row }">
+              <span class="chip" :class="statusTone(row.status)">{{ row.status }}</span>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
-
-      <el-empty v-if="!loading && rows.length === 0" description="暂无考试成绩" />
-
-      <el-table v-else :data="rows" stripe>
-        <el-table-column label="科目" width="110">
-          <template #default="{ row }">{{ row.subjectName || subjectShort(row.subjectCode) }}</template>
-        </el-table-column>
-        <el-table-column prop="venue" label="考场" min-width="160">
-          <template #default="{ row }">{{ row.venue ?? '-' }}</template>
-        </el-table-column>
-        <el-table-column label="考试日期" width="130">
-          <template #default="{ row }">{{ row.examDate ?? row.planDate ?? '待安排' }}</template>
-        </el-table-column>
-        <el-table-column label="次数" width="90">
-          <template #default="{ row }">
-            {{ row.attemptNo === 1 ? '初考' : `补考${row.attemptNo - 1}` }}
-          </template>
-        </el-table-column>
-        <el-table-column label="成绩" width="90">
-          <template #default="{ row }">{{ row.score ?? '-' }}</template>
-        </el-table-column>
-        <el-table-column label="状态" width="110">
-          <template #default="{ row }">
-            <span class="chip" :class="statusTone(row.status)">{{ row.status }}</span>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
     </template>
   </section>
 </template>
 
 <style scoped>
-.plan-grid {
+.exam-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
 }
 
-.plan {
+.exam-stat {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 14px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-base);
-  background: var(--bg-sunken);
+  gap: 6px;
+  padding: 18px 20px;
 }
 
-.plan__subject {
-  font-size: 14px;
-  font-weight: 650;
-  color: var(--text-primary);
-}
-
-.plan__venue {
-  font-size: 12.5px;
-  color: var(--text-secondary);
-}
-
-.plan__time {
-  font-size: 12px;
-  color: var(--text-primary);
-}
-
-.plan__quota {
+.exam-stat__k {
   font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
 }
 
-.plan__tip {
-  font-size: 11.5px;
-  color: var(--state-pending);
+.exam-stat__v {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-primary);
 }
 
-/* 卡片高度由网格拉齐，把按钮压到底部，避免四张卡片按钮错位 */
-.plan :deep(.el-button) {
-  margin-top: auto;
+.exam-stat__v small {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.exam-stat__v--danger {
+  color: var(--state-danger);
+}
+
+@media (max-width: 640px) {
+  .exam-stats {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

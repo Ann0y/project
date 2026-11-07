@@ -67,6 +67,10 @@ public interface StudentMapper {
     @Update("UPDATE student SET status = #{status} WHERE id = #{id}")
     int updateStatus(@Param("id") Long id, @Param("status") String status);
 
+    /** 学员在个人中心修改联系电话 */
+    @Update("UPDATE student SET phone = #{phone} WHERE id = #{id}")
+    int updatePhone(@Param("id") Long id, @Param("phone") String phone);
+
     @Update("UPDATE student SET coach_id = #{coachId}, vehicle_id = #{vehicleId} WHERE id = #{id}")
     int assignCoach(@Param("id") Long id, @Param("coachId") Long coachId, @Param("vehicleId") Long vehicleId);
 

@@ -189,6 +189,10 @@ public class DataInitializer implements CommandLineRunner {
             }
         }
 
+        // 主学员保留一笔待缴学费，用于演示学员端「学费缴纳」
+        paymentMapper.insert(payment(mainStudent.getId(), "培训费（第二阶段）",
+                "2800.00", null, null, "未缴", admin.getId()));
+
         /* ==================== 5. 排课时段（未来 14 天，密集） ==================== */
         // 每个工作日 4 个时段，主教练全部排，另两位教练部分排
         String[][] timeSlots = {
@@ -201,8 +205,9 @@ public class DataInitializer implements CommandLineRunner {
         List<CoachSchedule> coachSchedules = new ArrayList<>();
         for (int day = 0; day <= 14; day++) {
             LocalDate date = today.plusDays(day);
-            // 跳过周日，模拟真实排班
-            if (date.getDayOfWeek() == DayOfWeek.SUNDAY) continue;
+            // 周六、周日不排课，模拟真实排班
+            if (date.getDayOfWeek() == DayOfWeek.SATURDAY
+                    || date.getDayOfWeek() == DayOfWeek.SUNDAY) continue;
 
             for (int ci = 0; ci < coachList.length; ci++) {
                 Coach c = coachList[ci];

@@ -13,4 +13,8 @@ public class Booking {
     /** 待确认 / 已确认 / 已完成 / 已取消 / 爽约 */
     private String status;
     private LocalDateTime createTime;
+    /** 学员取消预约时填写的原因（仅已取消 / 爽约有值） */
+    private String cancelReason;
+    /** 取消时间 */
+    private LocalDateTime cancelTime;
 }

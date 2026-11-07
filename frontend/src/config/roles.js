@@ -82,7 +82,9 @@ export const NAV_GROUPS = [
     items: [
       { name: 'progress', title: '我的培训进度' },
       { name: 'training', title: '培训与约车' },
+      { name: 'hours', title: '我的学时' },
       { name: 'exams', title: '我的考试与成绩' },
+      { name: 'payments', title: '学费缴纳' },
       { name: 'profile', title: '个人中心' },
     ],
   },

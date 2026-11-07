@@ -2,9 +2,10 @@
 /**
  * F01 个人中心（学员端）
  * ---------------------------------------------------------------------------
- * 需求 F01：个人中心含我的信息、修改密码。
+ * 需求 F01：个人中心含我的信息、修改个人资料与修改密码。
  * 数据：GET /api/students/me/progress、GET /api/payments/my
- * 页面仅展示「我的信息」，缴费记录与修改密码分别通过按钮弹出弹窗查看/操作。
+ * 页面展示「我的信息」；缴费记录单独弹窗，个人资料（姓名 / 电话）与密码
+ * 合并到「修改个人资料」弹窗的两个标签页中。
  */
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
@@ -24,8 +25,10 @@ const failed = ref(false)
 
 /* ---------- 弹窗开关 ---------- */
 const paymentsDialogVisible = ref(false)
-const passwordDialogVisible = ref(false)
+const profileDialogVisible = ref(false)
+const profileTab = ref('basic')
 const paymentsLoading = ref(false)
+const savingProfile = ref(false)
 
 onMounted(load)
 
@@ -88,15 +91,62 @@ const rules = {
   ],
 }
 
-function openPasswordDialog() {
-  // 每次打开都清空上一次的输入
+/* ---------- 修改个人资料 ---------- */
+const profileFormRef = ref()
+const profileForm = reactive({ name: '', phone: '' })
+
+const profileRules = {
+  name: [
+    { required: true, message: '请输入姓名', trigger: 'blur' },
+    { max: 50, message: '姓名不能超过 50 个字符', trigger: 'blur' },
+  ],
+  phone: [
+    { required: true, message: '请输入联系电话', trigger: 'blur' },
+    {
+      pattern: /^[0-9+\-\s]{6,20}$/,
+      message: '请输入有效的联系电话（6-20 位数字，可含 + - 空格）',
+      trigger: 'blur',
+    },
+  ],
+}
+
+function openProfileDialog() {
+  profileForm.name = student.value?.name || ''
+  profileForm.phone = student.value?.phone || ''
+  profileFormRef.value?.clearValidate()
+
+  // 每次打开都清空上一次的密码输入
   pwdForm.oldPassword = ''
   pwdForm.newPassword = ''
   pwdForm.confirmPassword = ''
-  passwordDialogVisible.value = true
+  formRef.value?.clearValidate()
+
+  profileTab.value = 'basic'
+  profileDialogVisible.value = true
 }
 
-async function onSubmit() {
+async function saveProfile() {
+  if (!profileFormRef.value) return
+  const valid = await profileFormRef.value.validate().catch(() => false)
+  if (!valid) return
+
+  savingProfile.value = true
+  try {
+    await auth.updateProfile({
+      name: profileForm.name.trim(),
+      phone: profileForm.phone.trim(),
+    })
+    ElMessage.success('个人资料已更新')
+    // 重新拉取进度，页面上的姓名 / 电话同步更新
+    await data.loadProgress()
+  } catch (error) {
+    ElMessage.error(error.message || '保存失败')
+  } finally {
+    savingProfile.value = false
+  }
+}
+
+async function onSubmitPassword() {
   if (!formRef.value) return
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
@@ -107,7 +157,7 @@ async function onSubmit() {
     })
     ElMessage.success('密码修改成功')
     formRef.value.resetFields()
-    passwordDialogVisible.value = false
+    profileDialogVisible.value = false
   } catch (error) {
     ElMessage.error(error.message || '修改失败')
   }
@@ -119,7 +169,7 @@ async function onSubmit() {
     <PageHeader
       eyebrow="学员端"
       title="个人中心"
-      desc="查看我的信息；缴费记录与修改密码请点击对应按钮查看。"
+      desc="查看我的信息，维护联系电话等个人资料；缴费记录与密码安全也可在此处理。"
     />
 
     <ErrorState v-if="failed" message="个人信息加载失败，请检查后端服务后重试" @retry="load" />
@@ -168,7 +218,7 @@ async function onSubmit() {
           <el-button type="primary" :loading="paymentsLoading" @click="openPaymentsDialog">
             查看缴费记录
           </el-button>
-          <el-button @click="openPasswordDialog">修改密码</el-button>
+          <el-button @click="openProfileDialog">修改个人资料</el-button>
         </div>
       </div>
     </template>
@@ -208,31 +258,96 @@ async function onSubmit() {
       </el-table>
     </el-dialog>
 
-    <!-- 修改密码弹窗 -->
-    <el-dialog v-model="passwordDialogVisible" title="修改密码" width="420px">
-      <el-form
-        ref="formRef"
-        :model="pwdForm"
-        :rules="rules"
-        label-position="top"
-        @submit.prevent="onSubmit"
-      >
-        <el-form-item label="原密码" prop="oldPassword">
-          <el-input v-model="pwdForm.oldPassword" type="password" show-password />
-        </el-form-item>
-        <el-form-item label="新密码" prop="newPassword">
-          <el-input v-model="pwdForm.newPassword" type="password" show-password />
-        </el-form-item>
-        <el-form-item label="确认新密码" prop="confirmPassword">
-          <el-input v-model="pwdForm.confirmPassword" type="password" show-password />
-        </el-form-item>
-        <el-button type="primary" class="u-full" native-type="submit">保存修改</el-button>
-      </el-form>
+    <!-- 修改个人资料弹窗：基本资料 / 修改密码 -->
+    <el-dialog
+      v-model="profileDialogVisible"
+      title="修改个人资料"
+      width="480px"
+      top="6vh"
+      class="profile-dialog"
+      :close-on-click-modal="false"
+    >
+      <el-tabs v-model="profileTab">
+        <el-tab-pane label="基本资料" name="basic">
+          <div class="profile-meta">
+            <span>登录账号：{{ auth.user?.username }}</span>
+            <span>准驾车型：{{ student?.licenseType }}</span>
+          </div>
+          <el-form
+            ref="profileFormRef"
+            :model="profileForm"
+            :rules="profileRules"
+            label-position="top"
+            @submit.prevent="saveProfile"
+          >
+            <el-form-item label="姓名" prop="name">
+              <el-input v-model="profileForm.name" maxlength="50" show-word-limit />
+            </el-form-item>
+            <el-form-item label="联系电话" prop="phone">
+              <el-input v-model="profileForm.phone" maxlength="20" />
+            </el-form-item>
+            <p class="profile-tip">
+              身份证号、准驾车型等报名信息如需变更，请联系管理员在后台修改。
+            </p>
+            <el-button
+              type="primary"
+              class="u-full"
+              native-type="submit"
+              :loading="savingProfile"
+            >
+              保存资料
+            </el-button>
+          </el-form>
+        </el-tab-pane>
+
+        <el-tab-pane label="修改密码" name="password">
+          <el-form
+            ref="formRef"
+            :model="pwdForm"
+            :rules="rules"
+            label-position="top"
+            @submit.prevent="onSubmitPassword"
+          >
+            <el-form-item label="原密码" prop="oldPassword">
+              <el-input v-model="pwdForm.oldPassword" type="password" show-password />
+            </el-form-item>
+            <el-form-item label="新密码" prop="newPassword">
+              <el-input v-model="pwdForm.newPassword" type="password" show-password />
+            </el-form-item>
+            <el-form-item label="确认新密码" prop="confirmPassword">
+              <el-input v-model="pwdForm.confirmPassword" type="password" show-password />
+            </el-form-item>
+            <el-button type="primary" class="u-full" native-type="submit">保存修改</el-button>
+          </el-form>
+        </el-tab-pane>
+      </el-tabs>
     </el-dialog>
   </section>
 </template>
 
 <style scoped>
+/* 弹窗内容较高时在弹窗内部滚动，避免超出屏幕后需要手动翻页面 */
+:deep(.el-dialog__body) {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.profile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.profile-tip {
+  margin: 0 0 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-tertiary);
+}
+
 /* 弹窗顶部缴费汇总 */
 .pay-summary {
   display: grid;

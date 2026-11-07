@@ -179,6 +179,9 @@ const myBookings = computed(() =>
 
 const coachName = computed(() => data.progress?.coachName ?? '')
 const vehiclePlate = computed(() => data.progress?.vehiclePlate ?? '')
+/** 是否已分配带教教练 / 是否处于可预约的「在训」状态 */
+const hasCoach = computed(() => Boolean(data.progress?.coachId || data.progress?.coachName))
+const isTraining = computed(() => data.progress?.status === '在训')
 
 /** 距某日期的天数标签：今天 / 明天 / 后天 / N 天后（过期不显示） */
 function daysLabel(dateKey) {
@@ -261,26 +264,130 @@ async function book() {
   await reload()
 }
 
+/** 未完成预约可取消 / 改期 */
+const activeStatus = (b) => b.status === '待确认' || b.status === '已确认'
+const canCancel = activeStatus
+const canReschedule = activeStatus
+
 async function cancel(booking) {
-  if (booking.status !== '待确认') {
-    ElMessage.warning('仅「待确认」的预约可以取消')
+  if (!canCancel(booking)) {
+    ElMessage.warning('仅「待确认 / 已确认」的预约可以取消')
     return
   }
+  let reason = ''
   try {
-    await ElMessageBox.confirm('取消后该时段将被释放，确定取消吗？', '取消预约', {
-      confirmButtonText: '确定取消',
-      cancelButtonText: '保留',
+    const { value } = await ElMessageBox.prompt(
+      '取消后该时段将被释放。请填写取消原因（选填），便于教练了解情况。',
+      '取消预约',
+      {
+        confirmButtonText: '确定取消',
+        cancelButtonText: '保留',
+        inputType: 'textarea',
+        inputPlaceholder: '如：临时有事 / 身体不适 / 时间冲突',
+        inputValidator: (v) => !v || v.length <= 100 || '取消原因不能超过 100 字',
+        type: 'warning',
+      },
+    )
+    reason = value ?? ''
+  } catch {
+    return
+  }
+  const result = await data.cancelBooking(booking.id, reason)
+  if (!result?.ok) {
+    ElMessage.error(result?.reason || '取消失败')
+    return
+  }
+  ElMessage.success('预约已取消')
+  await reload()
+}
+/** 已结束（非未完成）的预约允许删除记录 */
+const deletable = (b) => b.status !== '待确认' && b.status !== '已确认'
+
+/* ------------------------------ 预约改期 ------------------------------ */
+
+const rescheduleVisible = ref(false)
+const rescheduleTarget = ref(null)
+const rescheduleDate = ref('')
+const rescheduleSlotId = ref(null)
+const rescheduling = ref(false)
+
+/** 改期弹窗里的时段选项：排除当前预约、本人其他预约与已满 / 停用时段 */
+const rescheduleSlotOptions = computed(() => {
+  const target = rescheduleTarget.value
+  if (!target) return []
+  const list = slotsByDate.value[rescheduleDate.value] ?? []
+  return list.map((s) => {
+    const isCurrent = target.scheduleId === s.id
+    const mine = bookedIds.value.has(s.id)
+    const full = s.status !== '可约'
+    let suffix = ''
+    if (isCurrent) suffix = ' · 当前预约'
+    else if (mine) suffix = ' · 我的预约'
+    else if (full) suffix = ` · ${s.status}`
+    return {
+      value: s.id,
+      label: `${timeRange(s.startTime, s.endTime)}${suffix}`,
+      disabled: isCurrent || mine || full,
+    }
+  })
+})
+
+function ensureRescheduleSlot() {
+  const options = rescheduleSlotOptions.value
+  const current = options.find((o) => o.value === rescheduleSlotId.value)
+  if (current && !current.disabled) return
+  rescheduleSlotId.value = options.find((o) => !o.disabled)?.value ?? null
+}
+
+function openReschedule(booking) {
+  rescheduleTarget.value = booking
+  rescheduleSlotId.value = null
+  // 优先选一个还有空位的日期，避免打开就是满的
+  const firstAvailable = dateOptions.value.find((o) =>
+    toOptions(o.value).some((x) => !x.disabled && x.value !== booking.scheduleId),
+  )
+  rescheduleDate.value = firstAvailable?.value ?? dateOptions.value[0]?.value ?? ''
+  ensureRescheduleSlot()
+  rescheduleVisible.value = true
+}
+
+watch(rescheduleDate, ensureRescheduleSlot)
+watch(rescheduleSlotOptions, ensureRescheduleSlot)
+
+async function submitReschedule() {
+  const option = rescheduleSlotOptions.value.find((o) => o.value === rescheduleSlotId.value)
+  if (!option || option.disabled) {
+    ElMessage.warning('请选择一个可预约的新时段')
+    return
+  }
+  rescheduling.value = true
+  const result = await data.rescheduleBooking(rescheduleTarget.value.id, option.value)
+  rescheduling.value = false
+  if (!result?.ok) {
+    ElMessage.warning(result?.reason || '改期失败')
+    return
+  }
+  ElMessage.success('改期成功，等待教练重新确认')
+  rescheduleVisible.value = false
+  await reload()
+}
+
+async function removeBooking(booking) {
+  try {
+    await ElMessageBox.confirm('删除后该记录不可恢复，确定删除吗？', '删除预约记录', {
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
       type: 'warning',
     })
   } catch {
     return
   }
-  const result = await data.setBookingStatus(booking.id, '已取消')
+  const result = await data.deleteMyBooking(booking.id)
   if (result !== true && !result?.ok) {
-    ElMessage.error(result?.reason || '取消失败')
+    ElMessage.error(result?.reason || '删除失败')
     return
   }
-  ElMessage.success('预约已取消')
+  ElMessage.success('预约记录已删除')
   await reload()
 }
 </script>
@@ -316,7 +423,16 @@ async function cancel(booking) {
             </span>
             <span class="chip" :class="statusTone(b.status)">{{ b.status }}</span>
             <el-button
-              v-if="b.status === '待确认'"
+              v-if="canReschedule(b)"
+              link
+              type="primary"
+              size="small"
+              @click="openReschedule(b)"
+            >
+              改期
+            </el-button>
+            <el-button
+              v-if="canCancel(b)"
               link
               type="danger"
               size="small"
@@ -324,12 +440,12 @@ async function cancel(booking) {
             >
               取消该预约
             </el-button>
-            <span v-else class="u-dim">请等待培训完成</span>
+            <span v-else-if="!canReschedule(b)" class="u-dim">请等待培训完成</span>
           </li>
         </ul>
       </div>
 
-      <div v-if="canBook" class="booking-form">
+      <div v-if="canBook && hasCoach && isTraining" class="booking-form">
         <div class="booking-form__field">
           <span class="booking-form__label">培训日期</span>
           <el-select v-model="selectedDate" placeholder="选择日期" style="width: 200px">
@@ -371,7 +487,13 @@ async function cancel(booking) {
         </el-button>
       </div>
 
-      <p v-if="!canBook" class="booking-form__tip">
+      <p v-if="!isTraining" class="booking-form__tip">
+        当前报名状态为「{{ data.progress?.status || '未知' }}」，仅「在训」学员可以预约培训。
+      </p>
+      <p v-else-if="!hasCoach" class="booking-form__tip">
+        尚未分配带教教练，请联系管理员完成分车后再预约。
+      </p>
+      <p v-else-if="!canBook" class="booking-form__tip">
         已有 {{ MAX_ACTIVE_BOOKINGS }} 条未完成预约，完成或取消后才能继续预约。
       </p>
       <p v-else-if="!loading && daySummary.total === 0" class="booking-form__tip">
@@ -403,16 +525,31 @@ async function cancel(booking) {
             <span class="chip" :class="statusTone(row.status)">{{ row.status }}</span>
           </template>
         </el-table-column>
+        <el-table-column label="取消原因" min-width="150">
+          <template #default="{ row }">
+            <span v-if="row.cancelReason">{{ row.cancelReason }}</span>
+            <span v-else class="u-dim">-</span>
+          </template>
+        </el-table-column>
         <el-table-column
           prop="createTime"
           label="提交时间"
           min-width="170"
           :formatter="(row) => dateTime(row.createTime)"
         />
-        <el-table-column label="操作" width="110">
+        <el-table-column label="操作" width="190">
           <template #default="{ row }">
             <el-button
-              v-if="row.status === '待确认'"
+              v-if="canReschedule(row)"
+              link
+              type="primary"
+              size="small"
+              @click="openReschedule(row)"
+            >
+              改期
+            </el-button>
+            <el-button
+              v-if="canCancel(row)"
               link
               type="danger"
               size="small"
@@ -420,11 +557,73 @@ async function cancel(booking) {
             >
               取消预约
             </el-button>
-            <span v-else class="u-dim">-</span>
+            <el-button
+              v-else-if="deletable(row)"
+              link
+              type="danger"
+              size="small"
+              @click="removeBooking(row)"
+            >
+              删除记录
+            </el-button>
+            <span v-if="!canReschedule(row) && !deletable(row)" class="u-dim">-</span>
           </template>
         </el-table-column>
       </el-table>
     </div>
+
+    <!-- 改期弹窗 -->
+    <el-dialog v-model="rescheduleVisible" title="预约改期" width="460px">
+      <p v-if="rescheduleTarget" class="u-dim reschedule__current">
+        当前预约：{{ rescheduleTarget.scheduleDate }}
+        {{ timeRange(rescheduleTarget.startTime, rescheduleTarget.endTime) }}
+      </p>
+
+      <el-form label-position="top">
+        <el-form-item label="新的培训日期">
+          <el-select v-model="rescheduleDate" style="width: 100%">
+            <el-option
+              v-for="opt in dateOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="新的培训时段">
+          <el-select
+            v-model="rescheduleSlotId"
+            placeholder="选择时段"
+            style="width: 100%"
+            no-data-text="当天暂无可预约时段"
+          >
+            <el-option
+              v-for="opt in rescheduleSlotOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+              :disabled="opt.disabled"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+
+      <p v-if="!rescheduleSlotOptions.some((o) => !o.disabled)" class="booking-form__tip">
+        最近 5 天暂无其他可约时段，请稍后再试。
+      </p>
+
+      <template #footer>
+        <el-button @click="rescheduleVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="rescheduling"
+          :disabled="!rescheduleSlotId"
+          @click="submitReschedule"
+        >
+          确认改期
+        </el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -488,6 +687,11 @@ async function cancel(booking) {
   margin: 12px 0 0;
   font-size: 12.5px;
   color: var(--text-secondary);
+}
+
+.reschedule__current {
+  margin: 0 0 14px;
+  font-size: 12.5px;
 }
 
 @media (max-width: 640px) {

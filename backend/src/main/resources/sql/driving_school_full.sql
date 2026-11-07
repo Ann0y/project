@@ -32,6 +32,8 @@ CREATE TABLE `booking` (
   `schedule_id` bigint(20) NOT NULL COMMENT '预约时段',
   `status` varchar(10) NOT NULL DEFAULT '待确认' COMMENT '待确认 / 已确认 / 已完成 / 已取消 / 爽约',
   `create_time` datetime NOT NULL DEFAULT current_timestamp() COMMENT '预约提交时间',
+  `cancel_reason` varchar(255) DEFAULT NULL COMMENT '取消原因',
+  `cancel_time` datetime DEFAULT NULL COMMENT '取消时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_student_schedule` (`student_id`,`schedule_id`),
   KEY `idx_schedule_status` (`schedule_id`,`status`),
@@ -670,7 +672,8 @@ INSERT INTO `payment` (`id`, `student_id`, `item`, `amount`, `pay_time`, `pay_me
 (13,13,'培训费',5800.00,'2026-09-04 15:11:43','支付宝','已缴',1),
 (14,14,'培训费',5800.00,'2026-09-03 15:11:43','银行','已缴',1),
 (15,15,'培训费',5800.00,'2026-09-02 15:11:43','现金','已缴',1),
-(16,16,'培训费',5800.00,NULL,NULL,'未缴',1);
+(16,16,'培训费',5800.00,NULL,NULL,'未缴',1),
+(17,1,'培训费（第二阶段）',2800.00,NULL,NULL,'未缴',1);
 /*!40000 ALTER TABLE `payment` ENABLE KEYS */;
 COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;

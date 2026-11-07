@@ -45,7 +45,7 @@ public interface CoachScheduleMapper {
             SELECT COUNT(*) FROM coach_schedule
             WHERE coach_id = #{coachId} AND schedule_date = #{date}
               AND start_time = #{startTime} AND del_flag = 0
-              AND (#{excludeId} IS NULL OR id &lt;&gt; #{excludeId})
+              AND (#{excludeId} IS NULL OR id != #{excludeId})
             """)
     long countClash(@Param("coachId") Long coachId,
                     @Param("date") java.time.LocalDate date,
@@ -56,10 +56,10 @@ public interface CoachScheduleMapper {
     @Select("""
             SELECT COUNT(*) FROM coach_schedule
             WHERE schedule_date = #{date}
-              AND start_time &lt; #{endTime} AND end_time &gt; #{startTime}
-              AND booked_count &gt; 0
+              AND start_time < #{endTime} AND end_time > #{startTime}
+              AND booked_count > 0
               AND del_flag = 0
-              AND id &lt;&gt; #{excludeId}
+              AND id != #{excludeId}
               AND (coach_id = #{coachId} OR (#{vehicleId} IS NOT NULL AND vehicle_id = #{vehicleId}))
             """)
     long countOccupied(@Param("coachId") Long coachId,

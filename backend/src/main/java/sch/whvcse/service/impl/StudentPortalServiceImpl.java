@@ -299,6 +299,8 @@ public class StudentPortalServiceImpl implements StudentPortalService {
             m.put("status", b.getStatus());
             m.put("createTime", b.getCreateTime());
             m.put("scheduleId", b.getScheduleId());
+            m.put("cancelReason", b.getCancelReason());
+            m.put("cancelTime", b.getCancelTime());
             if (s != null) {
                 m.put("scheduleDate", s.getScheduleDate());
                 m.put("startTime", s.getStartTime());
@@ -377,16 +379,70 @@ public class StudentPortalServiceImpl implements StudentPortalService {
 
     @Override
     @Transactional
-    public void cancelBooking(Long studentId, Long bookingId) {
+    public void cancelBooking(Long studentId, Long bookingId, String reason) {
         Booking b = bookingMapper.findById(bookingId);
         if (b == null || !b.getStudentId().equals(studentId)) {
             throw new BizException(404, "预约不存在");
         }
-        if (!"待确认".equals(b.getStatus())) {
-            throw new BizException(400, "仅「待确认」的预约可以取消");
+        if (!"待确认".equals(b.getStatus()) && !"已确认".equals(b.getStatus())) {
+            throw new BizException(400, "仅「待确认 / 已确认」的预约可以取消");
         }
-        bookingMapper.updateStatus(bookingId, "已取消");
+        CoachSchedule s = scheduleMapper.findById(b.getScheduleId());
+        if (s != null && isStarted(s)) {
+            throw new BizException(400, "该时段已开始，无法取消预约");
+        }
+        String cleanReason = reason == null ? null : reason.trim();
+        if (cleanReason != null && cleanReason.isEmpty()) cleanReason = null;
+        if (cleanReason != null && cleanReason.length() > 100) {
+            throw new BizException(400, "取消原因不能超过 100 字");
+        }
+        bookingMapper.cancel(bookingId, cleanReason);
         releaseSlot(b.getScheduleId());
+    }
+
+    @Override
+    @Transactional
+    public void rescheduleBooking(Long studentId, Long bookingId, Long newScheduleId) {
+        Student student = requireStudent(studentId);
+        Booking b = bookingMapper.findById(bookingId);
+        if (b == null || !b.getStudentId().equals(studentId)) {
+            throw new BizException(404, "预约不存在");
+        }
+        if (!"待确认".equals(b.getStatus()) && !"已确认".equals(b.getStatus())) {
+            throw new BizException(400, "仅「待确认 / 已确认」的预约可以改期");
+        }
+        if (newScheduleId == null) throw new BizException(400, "请选择新的预约时段");
+        if (newScheduleId.equals(b.getScheduleId())) {
+            throw new BizException(400, "新时段与当前预约相同，无需改期");
+        }
+
+        CoachSchedule target = scheduleMapper.findById(newScheduleId);
+        if (target == null) throw new BizException(404, "该时段不存在");
+        if (student.getCoachId() == null || !student.getCoachId().equals(target.getCoachId())) {
+            throw new BizException(403, "只能改到本人带教教练发布的时段");
+        }
+        if ("停用".equals(target.getStatus())) throw new BizException(400, "该时段已停用");
+
+        LocalDate today = LocalDate.now();
+        LocalDate windowEnd = today.plusDays(BOOKING_WINDOW_DAYS - 1L);
+        if (target.getScheduleDate().isBefore(today) || target.getScheduleDate().isAfter(windowEnd)) {
+            throw new BizException(400, "只能改到今天起 " + BOOKING_WINDOW_DAYS + " 天内的时段");
+        }
+        if (isStarted(target)) throw new BizException(400, "该时段已开始，不能改期");
+
+        // 唯一约束：同一学员与同一时段只能有一条记录（含历史取消记录）
+        if (bookingMapper.countAny(studentId, newScheduleId) > 0) {
+            throw new BizException(400, "你与该时段已有预约记录，请选择其他时段");
+        }
+        long active = bookingMapper.countActiveBySchedule(newScheduleId);
+        if (active >= target.getCapacity()) {
+            throw new BizException(400, "该时段已约满");
+        }
+
+        Long oldScheduleId = b.getScheduleId();
+        bookingMapper.reschedule(bookingId, newScheduleId);
+        releaseSlot(oldScheduleId);
+        occupySlot(target);
     }
 
     /** 释放时段容量并把「已满」改回「可约」 */
@@ -398,6 +454,36 @@ public class StudentPortalServiceImpl implements StudentPortalService {
                 ? "停用"
                 : active >= s.getCapacity() ? "已满" : "可约";
         scheduleMapper.updateBooked(scheduleId, (int) active, status);
+    }
+
+    /** 占用（或刷新）时段容量，容量用满时置为「已满」 */
+    private void occupySlot(CoachSchedule s) {
+        long active = bookingMapper.countActiveBySchedule(s.getId());
+        String status = "停用".equals(s.getStatus())
+                ? "停用"
+                : active >= s.getCapacity() ? "已满" : "可约";
+        scheduleMapper.updateBooked(s.getId(), (int) active, status);
+    }
+
+    /** 时段是否已经开始（当天且开始时间早于当前时间） */
+    private boolean isStarted(CoachSchedule s) {
+        LocalDate today = LocalDate.now();
+        if (s.getScheduleDate().isBefore(today)) return true;
+        return s.getScheduleDate().isEqual(today)
+                && !s.getStartTime().isAfter(LocalTime.now());
+    }
+
+    @Override
+    public void deleteBooking(Long studentId, Long bookingId) {
+        Booking b = bookingMapper.findById(bookingId);
+        if (b == null || !b.getStudentId().equals(studentId)) {
+            throw new BizException(404, "预约不存在");
+        }
+        // 未完成的预约不能直接删：先取消（保留培训追溯），删除仅用于清理历史记录
+        if ("待确认".equals(b.getStatus()) || "已确认".equals(b.getStatus())) {
+            throw new BizException(400, "未完成的预约不能删除，请先取消");
+        }
+        bookingMapper.delete(bookingId);
     }
 
     /* ======================= F04 我的考试与成绩 ======================= */
@@ -425,97 +511,6 @@ public class StudentPortalServiceImpl implements StudentPortalService {
     }
 
     @Override
-    public List<Map<String, Object>> openExamPlans(Long studentId) {
-        List<Map<String, Object>> rows = new ArrayList<>();
-        Map<String, BigDecimal> done = doneHoursMap(studentId);
-        Student st = requireStudent(studentId);
-
-        for (ExamPlan p : examPlanMapper.findOpen()) {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id", p.getId());
-            m.put("subjectCode", p.getSubjectCode());
-            m.put("subjectName", Enums.SUBJECTS.getOrDefault(p.getSubjectCode(), "科目" + p.getSubjectCode()));
-            m.put("examDate", p.getExamDate());
-            m.put("examTime", p.getExamTime());
-            m.put("venue", p.getVenue());
-            m.put("capacity", p.getCapacity());
-            m.put("enrolledCount", p.getEnrolledCount());
-            m.put("status", p.getStatus());
-
-            // 报名条件 1：本科学时达标
-            TrainCourse c = trainCourseMapper.findByTypeAndSubject(st.getLicenseType(), p.getSubjectCode());
-            BigDecimal required = c == null ? BigDecimal.ZERO : c.getRequiredHours();
-            BigDecimal mine = done.getOrDefault(p.getSubjectCode(), BigDecimal.ZERO);
-            m.put("myHours", mine);
-            m.put("requiredHours", required);
-            m.put("qualified", mine.compareTo(required) >= 0);
-
-            // 报名条件 2：按科目顺序报名（上一科目需已有报名记录）
-            String prev = previousSubject(p.getSubjectCode());
-            boolean prerequisiteMet = prev == null
-                    || examRecordMapper.countRegisteredBySubject(studentId, prev) > 0;
-            m.put("prerequisiteCode", prev);
-            m.put("prerequisiteName", prev == null ? null : Enums.subjectShort(prev));
-            m.put("prerequisiteMet", prerequisiteMet);
-
-            // 报名条件 3：本科目尚未合格（已合格无需重复报考）
-            m.put("passed", examRecordMapper.countPassedBySubject(studentId, p.getSubjectCode()) > 0);
-
-            m.put("registered", examRecordMapper.findByPlanId(p.getId()).stream()
-                    .anyMatch(r -> r.getStudentId().equals(studentId)));
-            rows.add(m);
-        }
-        return rows;
-    }
-
-    @Override
-    @Transactional
-    public ExamRecord registerExam(Long studentId, Long planId) {
-        Student student = requireStudent(studentId);
-        ExamPlan plan = examPlanMapper.findById(planId);
-        if (plan == null) throw new BizException(404, "考试计划不存在");
-        if (!"报名中".equals(plan.getStatus())) throw new BizException(400, "该场次已截止报名");
-        if (plan.getEnrolledCount() >= plan.getCapacity()) throw new BizException(400, "该场次名额已满");
-
-        // 已报名校验（uk_plan_student 唯一约束）
-        boolean exists = examRecordMapper.findByPlanId(planId).stream()
-                .anyMatch(r -> r.getStudentId().equals(studentId));
-        if (exists) throw new BizException(400, "你已报名该场次");
-
-        // 报考顺序：上一科目还没报名时，不允许报名后一科目（科二未报名 → 科三不能报名）
-        String prev = previousSubject(plan.getSubjectCode());
-        if (prev != null && examRecordMapper.countRegisteredBySubject(studentId, prev) == 0) {
-            throw new BizException(400, "请先报名" + Enums.subjectShort(prev)
-                    + "，再进行" + Enums.subjectShort(plan.getSubjectCode()) + "报名");
-        }
-
-        // 需求 3.3：校验学时是否满足该科目报考条件
-        TrainCourse c = trainCourseMapper.findByTypeAndSubject(
-                student.getLicenseType(), plan.getSubjectCode());
-        BigDecimal required = c == null ? BigDecimal.ZERO : c.getRequiredHours();
-        BigDecimal mine = doneHoursMap(studentId).getOrDefault(plan.getSubjectCode(), BigDecimal.ZERO);
-        if (mine.compareTo(required) < 0) {
-            throw new BizException(400, "该科目学时未达标（" + mine.stripTrailingZeros().toPlainString()
-                    + "/" + required.stripTrailingZeros().toPlainString() + "），暂不可报考");
-        }
-
-        // 该科目已合格则无需重复报考
-        boolean alreadyPassed = examRecordMapper.countPassedBySubject(studentId, plan.getSubjectCode()) > 0;
-        if (alreadyPassed) throw new BizException(400, "该科目已合格，无需重复报考");
-
-        ExamRecord record = new ExamRecord();
-        record.setPlanId(planId);
-        record.setStudentId(studentId);
-        record.setAttemptNo(1);
-        record.setStatus("待考");
-        examRecordMapper.insert(record);
-
-        // 同步冗余计数
-        examPlanMapper.addEnrolled(planId, 1);
-        return record;
-    }
-
-    @Override
     public List<Map<String, Object>> myPayments(Long studentId) {
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Payment p : paymentMapper.findByStudentId(studentId)) {
@@ -529,6 +524,67 @@ public class StudentPortalServiceImpl implements StudentPortalService {
             rows.add(m);
         }
         return rows;
+    }
+
+    @Override
+    @Transactional
+    public void payMyPayment(Long studentId, Long paymentId, String payMethod) {
+        Student student = requireStudent(studentId);
+        Payment payment = paymentMapper.findById(paymentId);
+        if (payment == null || !payment.getStudentId().equals(studentId)) {
+            throw new BizException(404, "缴费记录不存在");
+        }
+        if (!"未缴".equals(payment.getStatus())) {
+            throw new BizException(400, "该费用当前不是待缴状态");
+        }
+
+        String method = payMethod == null ? "" : payMethod.trim();
+        if (!List.of("微信", "支付宝", "银行", "现金").contains(method)) {
+            throw new BizException(400, "请选择有效的支付方式");
+        }
+
+        paymentMapper.markPaid(paymentId, method, student.getUserId());
+    }
+
+    @Override
+    public List<Map<String, Object>> myHours(Long studentId, String subjectCode, String auditStatus) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (HoursRecord r : hoursMapper.search(studentId, subjectCode, auditStatus, null)) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", r.getId());
+            m.put("subjectCode", r.getSubjectCode());
+            m.put("subjectName", Enums.SUBJECTS.getOrDefault(
+                    r.getSubjectCode(), "科目" + r.getSubjectCode()));
+            m.put("hours", r.getHours());
+            m.put("trainDate", r.getTrainDate());
+            m.put("auditStatus", r.getAuditStatus());
+            m.put("auditOpinion", r.getAuditOpinion());
+            m.put("auditTime", r.getAuditTime());
+            m.put("bookingId", r.getBookingId());
+
+            Coach coach = coachMapper.findById(r.getCoachId());
+            User coachUser = coach == null ? null : userMapper.findById(coach.getUserId());
+            m.put("coachName", coachUser == null ? "" : coachUser.getName());
+            rows.add(m);
+        }
+        return rows;
+    }
+
+    @Override
+    @Transactional
+    public void updateProfile(Long studentId, String name, String phone) {
+        Student student = requireStudent(studentId);
+        String cleanName = name == null ? "" : name.trim();
+        if (cleanName.isEmpty()) throw new BizException(400, "姓名不能为空");
+        if (cleanName.length() > 50) throw new BizException(400, "姓名不能超过 50 个字符");
+
+        String cleanPhone = phone == null ? "" : phone.trim();
+        if (!cleanPhone.matches("^[0-9+\\-\\s]{6,20}$")) {
+            throw new BizException(400, "请输入有效的联系电话（6-20 位数字，可含 + - 空格）");
+        }
+
+        userMapper.updateName(student.getUserId(), cleanName);
+        studentMapper.updatePhone(studentId, cleanPhone);
     }
 
     /* ======================= 私有辅助 ======================= */

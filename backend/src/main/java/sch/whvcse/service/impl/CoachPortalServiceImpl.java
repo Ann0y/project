@@ -2,6 +2,7 @@ package sch.whvcse.service.impl;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -159,6 +160,10 @@ public class CoachPortalServiceImpl implements CoachPortalService {
         }
         if (!payload.getStartTime().isBefore(payload.getEndTime())) {
             throw new BizException(400, "结束时间必须晚于开始时间");
+        }
+        DayOfWeek dow = payload.getScheduleDate().getDayOfWeek();
+        if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) {
+            throw new BizException(400, "周六、周日不排课，请选择工作日");
         }
 
         // 同一教练同一日期同一起始时间不可重复发布

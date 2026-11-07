@@ -137,11 +137,13 @@ CREATE TABLE `coach_schedule` (
 -- 6.3.7 booking 培训预约
 -- ---------------------------------------------------------------------------
 CREATE TABLE `booking` (
-    `id`          BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `student_id`  BIGINT      NOT NULL COMMENT '学员',
-    `schedule_id` BIGINT      NOT NULL COMMENT '预约时段',
-    `status`      VARCHAR(10) NOT NULL DEFAULT '待确认' COMMENT '待确认 / 已确认 / 已完成 / 已取消 / 爽约',
-    `create_time` DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '预约提交时间',
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `student_id`    BIGINT       NOT NULL COMMENT '学员',
+    `schedule_id`   BIGINT       NOT NULL COMMENT '预约时段',
+    `status`        VARCHAR(10)  NOT NULL DEFAULT '待确认' COMMENT '待确认 / 已确认 / 已完成 / 已取消 / 爽约',
+    `create_time`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '预约提交时间',
+    `cancel_reason` VARCHAR(255)          DEFAULT NULL COMMENT '取消原因',
+    `cancel_time`   DATETIME              DEFAULT NULL COMMENT '取消时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_student_schedule` (`student_id`, `schedule_id`),
     KEY `idx_schedule_status` (`schedule_id`, `status`),

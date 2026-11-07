@@ -22,7 +22,8 @@ public interface ExamPlanMapper {
     @Select("SELECT " + COLS + " FROM exam_plan WHERE id = #{id} AND del_flag = 0")
     ExamPlan findById(Long id);
 
-    @Select("SELECT " + COLS + " FROM exam_plan WHERE status = '报名中' AND del_flag = 0 ORDER BY exam_date")
+    @Select("SELECT " + COLS + " FROM exam_plan WHERE status = '报名中' AND del_flag = 0 "
+            + "AND exam_date >= CURDATE() ORDER BY exam_date")
     List<ExamPlan> findOpen();
 
     @Insert("""

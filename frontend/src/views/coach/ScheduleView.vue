@@ -72,10 +72,27 @@ onMounted(async () => {
   await reload()
 })
 
+/** 周六、周日不排课 */
+function disableWeekend(date) {
+  const day = date.getDay()
+  return day === 0 || day === 6
+}
+
+/** 本地时区的 yyyy-MM-dd；若今天是周末则顺延到下一个工作日 */
+function nextWorkdayKey() {
+  const d = new Date()
+  while (d.getDay() === 0 || d.getDay() === 6) {
+    d.setDate(d.getDate() + 1)
+  }
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
+}
+
 function openCreate() {
   editingId.value = null
   Object.assign(form, {
-    scheduleDate: new Date().toISOString().slice(0, 10),
+    scheduleDate: nextWorkdayKey(),
     startTime: '08:00',
     endTime: '10:00',
     capacity: 1,
@@ -102,6 +119,11 @@ function onSubmit() {
     if (!valid) return
     if (form.startTime >= form.endTime) {
       ElMessage.error('结束时间必须晚于开始时间')
+      return
+    }
+    const day = new Date(`${form.scheduleDate}T00:00:00`).getDay()
+    if (day === 0 || day === 6) {
+      ElMessage.error('周六、周日不排课，请选择工作日')
       return
     }
     const result = await data.saveSchedule({ id: editingId.value, ...form })
@@ -195,6 +217,7 @@ function vehiclePlate(id) {
             v-model="form.scheduleDate"
             type="date"
             value-format="YYYY-MM-DD"
+            :disabled-date="disableWeekend"
             class="u-full"
           />
         </el-form-item>

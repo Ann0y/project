@@ -2,8 +2,9 @@
 /**
  * F04 我的考试与成绩（学员端）
  * ---------------------------------------------------------------------------
- * 学员端只读：查看各科目考试成绩与补考记录。
- * 考试报名由管理员在后台统一安排，学员端不再提供报名入口。
+ * 学员端只读：查看各科目考试成绩。
+ * 科目考试由学员本人通过交管系统（交管 12123 等）预约报考，本系统不提供报名入口，
+ * 也不负责考场安排；成绩由交管系统同步回来后在这里展示。
  * 数据：GET /api/exam-scores/my
  */
 import { computed, onMounted, ref } from 'vue'
@@ -69,11 +70,11 @@ function attemptText(attemptNo) {
 </script>
 
 <template>
-  <section class="page">
+  <section class="page page--student">
     <PageHeader
       eyebrow="学员端"
       title="我的考试与成绩"
-      desc="查看各科目考试成绩与补考记录；考试安排由驾校统一组织。"
+      desc="科目考试请在交管系统（交管 12123 等）预约报考，本页只展示同步回来的考试成绩。"
     />
 
     <ErrorState v-if="failed" message="考试成绩加载失败，请检查后端服务后重试" @retry="reload" />
@@ -125,19 +126,19 @@ function attemptText(attemptNo) {
         </div>
 
         <el-skeleton v-if="loading" :rows="4" animated />
-        <el-empty v-else-if="filteredRows.length === 0" description="暂无考试成绩" />
+        <el-empty
+          v-else-if="filteredRows.length === 0"
+          description="暂无可显示的成绩，考试请在交管系统报考，成绩同步后会自动出现在这里"
+        />
 
         <el-table v-else :data="filteredRows" stripe>
-          <el-table-column label="科目" width="120">
+          <el-table-column label="科目" width="140">
             <template #default="{ row }">
               {{ row.subjectName || subjectShort(row.subjectCode) }}
             </template>
           </el-table-column>
-          <el-table-column prop="venue" label="考场" min-width="160">
-            <template #default="{ row }">{{ row.venue ?? '-' }}</template>
-          </el-table-column>
           <el-table-column label="考试日期" width="130">
-            <template #default="{ row }">{{ row.examDate ?? row.planDate ?? '待安排' }}</template>
+            <template #default="{ row }">{{ row.examDate ?? row.planDate ?? '待同步' }}</template>
           </el-table-column>
           <el-table-column label="次数" width="100">
             <template #default="{ row }">{{ attemptText(row.attemptNo) }}</template>
@@ -150,6 +151,11 @@ function attemptText(attemptNo) {
               <span class="chip" :class="statusTone(row.status)">{{ row.status }}</span>
             </template>
           </el-table-column>
+          <el-table-column label="备注" min-width="180">
+            <template #default="{ row }">
+              {{ row.status === '不合格' ? '请在交管系统重新预约补考' : '-' }}
+            </template>
+          </el-table-column>
         </el-table>
       </div>
     </template>
@@ -160,14 +166,14 @@ function attemptText(attemptNo) {
 .exam-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 18px;
 }
 
 .exam-stat {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 18px 20px;
+  gap: 8px;
+  padding: 22px 24px;
 }
 
 .exam-stat__k {
@@ -193,6 +199,14 @@ function attemptText(attemptNo) {
 
 .exam-stat__v--danger {
   color: var(--state-danger);
+}
+
+.query {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
 }
 
 @media (max-width: 640px) {

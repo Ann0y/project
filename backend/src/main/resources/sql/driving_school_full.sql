@@ -287,10 +287,10 @@ CREATE TABLE `exam_plan` (
   `venue` varchar(100) NOT NULL COMMENT '考场',
   `capacity` int(11) NOT NULL COMMENT '容量',
   `enrolled_count` int(11) NOT NULL DEFAULT 0 COMMENT '已报名人数（冗余缓存）',
-  `status` varchar(10) NOT NULL DEFAULT '报名中' COMMENT '报名中 / 已截止 / 已完成',
+  `status` varchar(10) NOT NULL DEFAULT '报名中' COMMENT '报名中 / 已截止 / 已完成（仅作场次标记，报考在交管系统进行）',
   `del_flag` tinyint(4) NOT NULL DEFAULT 0 COMMENT '逻辑删除',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='考试计划';
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='考试场次（从交管系统同步，本系统不编排考场）';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -318,7 +318,7 @@ DROP TABLE IF EXISTS `exam_record`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `exam_record` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键',
-  `plan_id` bigint(20) NOT NULL COMMENT '考试计划',
+  `plan_id` bigint(20) NOT NULL COMMENT '所属考试场次',
   `student_id` bigint(20) NOT NULL COMMENT '学员',
   `register_time` datetime NOT NULL DEFAULT current_timestamp() COMMENT '报名时间',
   `attempt_no` int(11) NOT NULL DEFAULT 1 COMMENT '第几次（补考递增）',
@@ -330,7 +330,7 @@ CREATE TABLE `exam_record` (
   KEY `fk_exam_student` (`student_id`),
   CONSTRAINT `fk_exam_plan` FOREIGN KEY (`plan_id`) REFERENCES `exam_plan` (`id`),
   CONSTRAINT `fk_exam_student` FOREIGN KEY (`student_id`) REFERENCES `student` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='考试报名与成绩';
+) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='考试成绩（由交管系统同步，本系统不承担报名）';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -657,7 +657,7 @@ CREATE TABLE `payment` (
 
 SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 /*!40000 ALTER TABLE `payment` DISABLE KEYS */;
-INSERT INTO `payment` (`id`, `student_id`, `item`, `amount`, `pay_time`, `pay_method`, `status`, `operator_id`) VALUES (1,1,'培训费',5800.00,'2026-09-16 15:11:43','支付宝','已缴',1),
+INSERT INTO `payment` (`id`, `student_id`, `item`, `amount`, `pay_time`, `pay_method`, `status`, `operator_id`) VALUES (1,1,'培训费',5800.00,NULL,NULL,'未缴',1),
 (2,2,'培训费',5800.00,'2026-09-15 15:11:43','银行','已缴',1),
 (3,3,'培训费',5800.00,'2026-09-14 15:11:43','现金','已缴',1),
 (4,4,'培训费',5800.00,'2026-09-13 15:11:43','微信','已缴',1),
@@ -672,8 +672,7 @@ INSERT INTO `payment` (`id`, `student_id`, `item`, `amount`, `pay_time`, `pay_me
 (13,13,'培训费',5800.00,'2026-09-04 15:11:43','支付宝','已缴',1),
 (14,14,'培训费',5800.00,'2026-09-03 15:11:43','银行','已缴',1),
 (15,15,'培训费',5800.00,'2026-09-02 15:11:43','现金','已缴',1),
-(16,16,'培训费',5800.00,NULL,NULL,'未缴',1),
-(17,1,'培训费（第二阶段）',2800.00,NULL,NULL,'未缴',1);
+(16,16,'培训费',5800.00,NULL,NULL,'未缴',1);
 /*!40000 ALTER TABLE `payment` ENABLE KEYS */;
 COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;

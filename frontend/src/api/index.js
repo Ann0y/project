@@ -78,15 +78,19 @@ export const auditHoursApi = (id, data) => request.patch(`/hours/${id}/audit`, d
 export const coursesApi = () => request.get('/courses')
 export const updateCourseApi = (id, data) => request.put(`/courses/${id}`, data)
 
+/**
+ * 考试与成绩：科目考试统一在交管系统（交管 12123 等）报考，
+ * 本系统不提供考试报名 / 考场编排 / 名单确认，只同步并展示成绩。
+ */
 export const examPlansApi = () => request.get('/exam-plans')
-export const createExamPlanApi = (data) => request.post('/exam-plans', data)
-export const updateExamPlanApi = (id, data) => request.put(`/exam-plans/${id}`, data)
-export const deleteExamPlanApi = (id) => request.delete(`/exam-plans/${id}`)
-export const changeExamPlanStatusApi = (id, status) =>
-  request.patch(`/exam-plans/${id}/status`, { status })
-export const confirmRosterApi = (id) => request.post(`/exam-plans/${id}/confirm`)
 export const examScoresApi = (params) => request.get('/exam-scores', { params })
-export const saveScoreApi = (data) => request.post('/exam-scores', data)
+/** 从交管系统同步一条成绩：{ studentId, subjectCode, examDate, score } */
+export const syncExamScoreApi = (data) => request.post('/exam-scores/sync', data)
+/** 批量同步成绩：传数组，或 { items: [...] }；单条失败不中断整批 */
+export const syncExamScoresBatchApi = (items) =>
+  request.post('/exam-scores/sync/batch', Array.isArray(items) ? items : { items })
+/** 批量同步的字段模板 */
+export const examSyncTemplateApi = () => request.get('/exam-scores/sync/template')
 
 export const usersApi = (params) => request.get('/users', { params })
 export const createUserApi = (data) => request.post('/users', data)

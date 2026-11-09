@@ -54,4 +54,8 @@ public interface PaymentMapper {
 
     @Select("SELECT COUNT(*) FROM payment WHERE student_id = #{studentId} AND status = '未缴'")
     long countUnpaid(Long studentId);
+
+    /** 同一学员的同一缴费项目只允许一条（培训费仅一笔） */
+    @Select("SELECT COUNT(*) FROM payment WHERE student_id = #{studentId} AND item = #{item}")
+    long countByStudentAndItem(@Param("studentId") Long studentId, @Param("item") String item);
 }

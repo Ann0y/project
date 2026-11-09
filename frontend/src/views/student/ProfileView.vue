@@ -165,7 +165,7 @@ async function onSubmitPassword() {
 </script>
 
 <template>
-  <section class="page">
+  <section class="page page--student">
     <PageHeader
       eyebrow="学员端"
       title="个人中心"
@@ -335,32 +335,45 @@ async function onSubmitPassword() {
 .profile-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 18px;
-  margin-bottom: 14px;
+  gap: 8px 20px;
+  margin-bottom: 18px;
   font-size: 12px;
   color: var(--text-tertiary);
 }
 
 .profile-tip {
-  margin: 0 0 14px;
+  margin: 0 0 18px;
   font-size: 12px;
-  line-height: 1.6;
+  line-height: 1.7;
   color: var(--text-tertiary);
+}
+
+.meta-item {
+  gap: 5px;
+  padding: 14px 16px;
+}
+
+.u-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 22px;
 }
 
 /* 弹窗顶部缴费汇总 */
 .pay-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 14px;
+  margin-bottom: 18px;
 }
 
 .pay-summary__item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
+  gap: 6px;
+  padding: 14px 16px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-base);
   background: var(--bg-sunken);

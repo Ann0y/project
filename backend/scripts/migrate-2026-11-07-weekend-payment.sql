@@ -3,7 +3,8 @@
 -- 说明：
 --   1. 周六、周日不再排课，历史周末排课保留，仅清理今天及以后的周末时段；
 --   2. 若周末时段上还有未完成预约，先自动取消，避免学员白跑；
---   3. 为演示学员 student（李小明）补一笔待缴学费，便于演示「学费缴纳」。
+--   3. 培训费每名学员只保留一笔，删除历史演示中多追加的“培训费（第二阶段）”；
+--   4. 演示学员 student（李小明）的这笔培训费保持待缴，用于演示「学费缴纳」。
 
 -- 1) 取消未来周末时段上的未完成预约
 UPDATE `booking` b
@@ -23,14 +24,24 @@ WHERE del_flag = 0
   AND schedule_date >= CURDATE()
   AND DAYOFWEEK(schedule_date) IN (1, 7);
 
--- 3) 演示学员补一笔待缴学费（幂等：已有同名项目则不重复插入）
-INSERT INTO `payment` (`student_id`, `item`, `amount`, `pay_time`, `pay_method`, `status`, `operator_id`)
-SELECT s.id, '培训费（第二阶段）', 2800.00, NULL, NULL, '未缴',
-       (SELECT id FROM `sys_user` WHERE username = 'admin' LIMIT 1)
-FROM `student` s
+-- 3) 删除历史演示中多追加的“培训费（第二阶段）”
+DELETE FROM `payment` WHERE `item` = '培训费（第二阶段）';
+
+-- 4) 同一学员若存在多笔培训费，仅保留最早的一笔
+DELETE p1
+FROM `payment` p1
+JOIN `payment` p2
+  ON p1.student_id = p2.student_id
+ AND p1.item = '培训费'
+ AND p2.item = '培训费'
+ AND p1.id > p2.id;
+
+-- 5) 演示学员的唯一一笔培训费保持待缴，便于演示在线缴费
+UPDATE `payment` p
+JOIN `student` s ON s.id = p.student_id
 JOIN `sys_user` u ON u.id = s.user_id
+SET p.status = '未缴',
+    p.pay_time = NULL,
+    p.pay_method = NULL
 WHERE u.username = 'student'
-  AND NOT EXISTS (
-      SELECT 1 FROM `payment` p
-      WHERE p.student_id = s.id AND p.item = '培训费（第二阶段）'
-  );
+  AND p.item = '培训费';

@@ -22,10 +22,11 @@ public interface ExamPlanMapper {
     @Select("SELECT " + COLS + " FROM exam_plan WHERE id = #{id} AND del_flag = 0")
     ExamPlan findById(Long id);
 
-    @Select("SELECT " + COLS + " FROM exam_plan WHERE status = '报名中' AND del_flag = 0 "
-            + "AND exam_date >= CURDATE() ORDER BY exam_date")
-    List<ExamPlan> findOpen();
-
+    /**
+     * 同步考试场次（来自交管系统或考试记录）。
+     * <p>考试在交管软件中报考，本系统不再对外提供“发布 / 修改 / 删除考试计划”的接口，
+     * 此方法仅供进度同步与演示数据初始化内部使用。</p>
+     */
     @Insert("""
             INSERT INTO exam_plan(subject_code, exam_date, exam_time, venue, capacity, enrolled_count, status)
             VALUES(#{subjectCode}, #{examDate}, #{examTime}, #{venue}, #{capacity}, #{enrolledCount}, #{status})
@@ -33,12 +34,13 @@ public interface ExamPlanMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(ExamPlan plan);
 
+    /** 只同步场次信息（科目 / 日期 / 时间 / 考场），不改容量与报名状态 */
     @Update("""
             UPDATE exam_plan SET subject_code = #{subjectCode}, exam_date = #{examDate},
-                   exam_time = #{examTime}, venue = #{venue}, capacity = #{capacity}, status = #{status}
+                   exam_time = #{examTime}, venue = #{venue}
             WHERE id = #{id}
             """)
-    int update(ExamPlan plan);
+    int syncMeta(ExamPlan plan);
 
     /** 报名人数 +N（冗余缓存，需与明细同步） */
     @Update("UPDATE exam_plan SET enrolled_count = enrolled_count + #{delta} WHERE id = #{id}")
@@ -46,9 +48,6 @@ public interface ExamPlanMapper {
 
     @Update("UPDATE exam_plan SET status = #{status} WHERE id = #{id}")
     int updateStatus(@Param("id") Long id, @Param("status") String status);
-
-    @Update("UPDATE exam_plan SET del_flag = 1 WHERE id = #{id}")
-    int softDelete(Long id);
 
     @Select("SELECT COUNT(*) FROM exam_plan WHERE del_flag = 0 AND exam_date >= #{today}")
     long countUpcoming(@Param("today") LocalDate today);

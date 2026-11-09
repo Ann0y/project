@@ -107,6 +107,10 @@ public interface ExamRecordMapper {
     long countPendingBySubject(@Param("studentId") Long studentId,
                                @Param("subjectCode") String subjectCode);
 
+    /**
+     * 待出成绩的记录数（状态为「待考」）。
+     * 考试在交管系统报考，本系统没有「待录入」的概念，这里只作为「待同步成绩」的提示口径。
+     */
     @Select("SELECT COUNT(*) FROM exam_record WHERE status = '待考'")
     long countPending();
 

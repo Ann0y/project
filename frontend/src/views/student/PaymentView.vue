@@ -83,7 +83,7 @@ async function submitPay() {
 </script>
 
 <template>
-  <section class="page">
+  <section class="page page--student">
     <PageHeader
       eyebrow="学员端"
       title="学费缴纳"
@@ -215,14 +215,14 @@ async function submitPay() {
 .pay-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 18px;
 }
 
 .pay-stat {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 18px 20px;
+  gap: 8px;
+  padding: 22px 24px;
 }
 
 .pay-stat__k {
@@ -253,14 +253,14 @@ async function submitPay() {
 .pay-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
 
 .pay-item {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 14px 16px;
+  gap: 18px;
+  padding: 18px 20px;
   border: 1px solid var(--border-base);
   border-radius: var(--radius-md);
   background: var(--bg-sunken);
@@ -296,7 +296,8 @@ async function submitPay() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 0;
+  gap: 16px;
+  padding: 12px 0;
   border-bottom: 1px solid var(--border-subtle);
   font-size: 13px;
   color: var(--text-secondary);
@@ -308,13 +309,13 @@ async function submitPay() {
 }
 
 .pay-dialog :deep(.el-form) {
-  margin-top: 16px;
+  margin-top: 20px;
 }
 
 .pay-dialog__tip {
-  margin: 6px 0 0;
+  margin: 10px 0 0;
   font-size: 11.5px;
-  line-height: 1.6;
+  line-height: 1.7;
   color: var(--text-tertiary);
 }
 

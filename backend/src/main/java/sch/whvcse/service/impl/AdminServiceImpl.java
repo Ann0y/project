@@ -46,6 +46,9 @@ import sch.whvcse.vo.ExamRecordView;
 @Service
 public class AdminServiceImpl implements AdminService {
 
+    /** 交管系统成绩批量同步的单次上限，避免一次请求把库拖住 */
+    private static final int MAX_BATCH_SYNC = 500;
+
     private final StudentMapper studentMapper;
     private final UserMapper userMapper;
     private final CoachMapper coachMapper;
@@ -110,6 +113,7 @@ public class AdminServiceImpl implements AdminService {
         todo.put("pendingAudit", studentMapper.countByStatus("待审核"));
         todo.put("pendingHours", hoursMapper.countByAuditStatus("待审核"));
         todo.put("pendingBooking", bookingMapper.countByStatus("待确认"));
+        // 考试在交管系统报考，这里的「待同步成绩」指已约考但成绩尚未回传的记录
         todo.put("pendingScore", examRecordMapper.countPending());
 
         // 近 12 个月报名趋势
@@ -556,6 +560,29 @@ public class AdminServiceImpl implements AdminService {
         }
     }
 
+    /**
+     * 成绩同步时定位学员：优先用主键，否则按姓名模糊匹配；
+     * 重名时取 id 最小的一条，并把候选提示拼进错误信息，避免同步到错误的人。
+     */
+    private Student resolveStudent(Long studentId, String studentName) {
+        if (studentId != null) {
+            Student s = studentMapper.findById(studentId);
+            if (s == null) throw new BizException(404, "学员不存在");
+            return s;
+        }
+        if (studentName == null || studentName.isBlank()) {
+            throw new BizException(400, "请提供学员姓名或学员编号");
+        }
+        List<Student> hits = studentMapper.search(studentName.trim(), null, null, null, null);
+        if (hits.isEmpty()) throw new BizException(404, "未找到姓名为「" + studentName + "」的学员");
+        if (hits.size() > 1) {
+            throw new BizException(400, "存在 " + hits.size()
+                    + " 位同名学员，请改用学员编号同步：" + hits.stream()
+                    .map(s -> s.getId().toString()).reduce((a, b) -> a + "、" + b).orElse(""));
+        }
+        return hits.get(0);
+    }
+
     /* 以下方法在 AdminServiceImplPart2 中实现（拆分文件不利于阅读，故集中于此） */
 
     @Override
@@ -666,51 +693,14 @@ public class AdminServiceImpl implements AdminService {
         trainCourseMapper.updateHours(id, requiredHours);
     }
 
-    /* ============================== F14 考试管理 ============================== */
+    /* ====================== F14 考试与成绩（只读 + 成绩同步） ======================
+     * 科目考试统一在交管系统报考，本系统不提供考试报名、考场编排、名单确认等业务，
+     * 管理员只能查看成绩；成绩通过 syncExamScore 从交管系统同步进来。
+     * ============================================================================ */
 
     @Override
     public List<ExamPlan> listExamPlans() {
         return examPlanMapper.findAll();
-    }
-
-    @Override
-    public ExamPlan saveExamPlan(ExamPlan plan) {
-        if (plan.getSubjectCode() == null || plan.getSubjectCode().isBlank()) {
-            throw new BizException(400, "请选择科目");
-        }
-        if (plan.getExamDate() == null) throw new BizException(400, "请选择考试日期");
-        if (plan.getVenue() == null || plan.getVenue().isBlank()) {
-            throw new BizException(400, "请输入考场");
-        }
-        if (plan.getCapacity() == null || plan.getCapacity() < 1) {
-            throw new BizException(400, "容量必须大于 0");
-        }
-        if (plan.getId() != null) {
-            ExamPlan old = examPlanMapper.findById(plan.getId());
-            if (old == null) throw new BizException(404, "考试计划不存在");
-            if (plan.getStatus() == null) plan.setStatus(old.getStatus());
-            examPlanMapper.update(plan);
-        } else {
-            if (plan.getStatus() == null) plan.setStatus("报名中");
-            plan.setEnrolledCount(0);
-            examPlanMapper.insert(plan);
-        }
-        return examPlanMapper.findById(plan.getId());
-    }
-
-    @Override
-    public void changeExamPlanStatus(Long id, String status) {
-        if (!List.of("报名中", "已截止", "已完成").contains(status)) {
-            throw new BizException(400, "不支持的考试计划状态：" + status);
-        }
-        if (examPlanMapper.findById(id) == null) throw new BizException(404, "考试计划不存在");
-        examPlanMapper.updateStatus(id, status);
-    }
-
-    @Override
-    public void deleteExamPlan(Long id) {
-        if (examPlanMapper.findById(id) == null) throw new BizException(404, "考试计划不存在");
-        examPlanMapper.softDelete(id);
     }
 
     @Override
@@ -724,38 +714,135 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @Transactional
-    public void saveExamScore(Long recordId, BigDecimal score) {
-        ExamRecord r = examRecordMapper.findById(recordId);
-        if (r == null) throw new BizException(404, "考试记录不存在");
-        if (score == null || score.signum() < 0 || score.compareTo(BigDecimal.valueOf(100)) > 0) {
-            throw new BizException(400, "请输入 0-100 之间的成绩");
+    public ExamRecordView syncExamScore(Long studentId, String studentName, String subjectCode,
+                                        LocalDate examDate, BigDecimal score) {
+        if (!Enums.SUBJECTS.containsKey(subjectCode)) {
+            throw new BizException(400, "科目只能是 1~4");
         }
-
-        // 需求 3.3：合格 → 科目通过；不合格 → 生成补考记录
-        boolean passed = score.compareTo(BigDecimal.valueOf(90)) >= 0;
-        r.setScore(score);
-        r.setExamDate(LocalDate.now());
-        r.setStatus(passed ? "合格" : "补考中");
-        examRecordMapper.updateScore(r);
-
-        if (!passed) {
-            ExamRecord retake = new ExamRecord();
-            retake.setPlanId(r.getPlanId());
-            retake.setStudentId(r.getStudentId());
-            retake.setAttemptNo(r.getAttemptNo() == null ? 2 : r.getAttemptNo() + 1);
-            retake.setStatus("待考");
-            examRecordMapper.insert(retake);
-            examPlanMapper.addEnrolled(r.getPlanId(), 1);
+        if (score != null && (score.signum() < 0 || score.compareTo(BigDecimal.valueOf(100)) > 0)) {
+            throw new BizException(400, "成绩必须在 0~100 之间");
         }
+        Student student = resolveStudent(studentId, studentName);
+        LocalDate date = examDate == null ? LocalDate.now() : examDate;
+        return writeExamScore(student.getId(), subjectCode, date, score);
     }
 
     @Override
-    public void confirmRoster(Long planId) {
-        ExamPlan plan = examPlanMapper.findById(planId);
-        if (plan == null) throw new BizException(404, "考试计划不存在");
-        if ("报名中".equals(plan.getStatus())) {
-            examPlanMapper.updateStatus(planId, "已截止");
+    @Transactional
+    public Map<String, Object> syncExamScoresBatch(List<Map<String, Object>> items) {
+        if (items == null || items.isEmpty()) {
+            throw new BizException(400, "同步列表为空");
         }
+        if (items.size() > MAX_BATCH_SYNC) {
+            throw new BizException(400, "单次最多同步 " + MAX_BATCH_SYNC + " 条，请分批提交");
+        }
+
+        int created = 0;
+        int updated = 0;
+        int skipped = 0;
+        List<Map<String, Object>> errors = new ArrayList<>();
+
+        for (int i = 0; i < items.size(); i++) {
+            Map<String, Object> item = items.get(i);
+            int rowNo = i + 1;
+            // 每条独立 try/catch：一条脏数据不能拖垮整批（批次本身是一个事务）
+            try {
+                String subjectCode = str(item.get("subjectCode"));
+                if (subjectCode == null || subjectCode.isBlank()) {
+                    throw new BizException(400, "缺少科目 subjectCode");
+                }
+                if (!Enums.SUBJECTS.containsKey(subjectCode)) {
+                    throw new BizException(400, "科目只能是 1~4，收到：" + subjectCode);
+                }
+                BigDecimal score = item.get("score") == null ? null : toDecimal(item.get("score"));
+                if (score != null && (score.signum() < 0 || score.compareTo(BigDecimal.valueOf(100)) > 0)) {
+                    throw new BizException(400, "成绩必须在 0~100 之间");
+                }
+                Long studentId = toLong(item.get("studentId"));
+                String studentName = str(item.get("studentName"));
+                if (studentId == null && (studentName == null || studentName.isBlank())) {
+                    throw new BizException(400, "缺少学员标识 studentId / studentName");
+                }
+                Student student = resolveStudent(studentId, studentName);
+                LocalDate date = toDate(item.get("examDate"), null);
+                if (date == null) date = LocalDate.now();
+
+                boolean isNew = findSameSessionRecord(student.getId(), subjectCode, date) == null;
+                writeExamScore(student.getId(), subjectCode, date, score);
+                if (isNew) created++;
+                else updated++;
+            } catch (BizException e) {
+                skipped++;
+                Map<String, Object> err = new LinkedHashMap<>();
+                err.put("row", rowNo);
+                err.put("reason", e.getMessage());
+                err.put("payload", item);
+                errors.add(err);
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("total", items.size());
+        result.put("created", created);
+        result.put("updated", updated);
+        result.put("skipped", skipped);
+        result.put("errors", errors);
+        return result;
+    }
+
+    /** 同科目、同考试日期的已有成绩记录；没有则返回 null */
+    private ExamRecord findSameSessionRecord(Long studentId, String subjectCode, LocalDate date) {
+        for (ExamRecordView v : examRecordMapper.findViewByStudent(studentId)) {
+            if (subjectCode.equals(v.getSubjectCode()) && date.equals(v.getExamDate())) {
+                return examRecordMapper.findById(v.getId());
+            }
+        }
+        return null;
+    }
+
+    /** 单条成绩落库：已有同场次记录则覆盖，否则新建（场次缺失时自动补一条同步场次） */
+    private ExamRecordView writeExamScore(Long studentId, String subjectCode,
+                                          LocalDate date, BigDecimal score) {
+        // 合格线 90 分：与交管科目一/四的合格标准保持一致
+        String status = score == null ? "待考"
+                : (score.compareTo(BigDecimal.valueOf(90)) >= 0 ? "合格" : "不合格");
+
+        ExamRecord target = findSameSessionRecord(studentId, subjectCode, date);
+        if (target != null) {
+            target.setScore(score);
+            target.setStatus(status);
+            target.setExamDate(date);
+            examRecordMapper.updateScore(target);
+            return examRecordMapper.findViewByRecordId(target.getId());
+        }
+
+        ExamPlan plan = examPlanMapper.findAll().stream()
+                .filter(p -> subjectCode.equals(p.getSubjectCode()) && date.equals(p.getExamDate()))
+                .findFirst()
+                .orElse(null);
+        if (plan == null) {
+            // 交管系统里的场次本系统没有，自动补齐一条只用于归集成绩的场次
+            plan = new ExamPlan();
+            plan.setSubjectCode(subjectCode);
+            plan.setExamDate(date);
+            plan.setVenue("交管系统同步");
+            plan.setCapacity(0);
+            plan.setEnrolledCount(0);
+            plan.setStatus("已完成");
+            examPlanMapper.insert(plan);
+            plan = examPlanMapper.findById(plan.getId());
+        }
+
+        long same = examRecordMapper.countRegisteredBySubject(studentId, subjectCode);
+        ExamRecord record = new ExamRecord();
+        record.setPlanId(plan.getId());
+        record.setStudentId(studentId);
+        record.setAttemptNo((int) same + 1);
+        record.setScore(score);
+        record.setStatus(status);
+        record.setExamDate(date);
+        examRecordMapper.insert(record);
+        return examRecordMapper.findViewByRecordId(record.getId());
     }
 
     /* ============================== F16 用户管理 ============================== */
@@ -863,6 +950,13 @@ public class AdminServiceImpl implements AdminService {
         if (payment.getAmount() == null) throw new BizException(400, "请输入金额");
         if (payment.getStatus() == null) payment.setStatus("未缴");
 
+        Payment current = payment.getId() == null ? null : paymentMapper.findById(payment.getId());
+        if ("培训费".equals(payment.getItem())
+                && (current == null || !"培训费".equals(current.getItem()))
+                && paymentMapper.countByStudentAndItem(payment.getStudentId(), "培训费") > 0) {
+            throw new BizException(400, "该学员已有培训费记录，请勿重复添加");
+        }
+
         if (payment.getId() != null) paymentMapper.update(payment);
         else paymentMapper.insert(payment);
         return paymentMapper.findById(payment.getId());
@@ -872,9 +966,14 @@ public class AdminServiceImpl implements AdminService {
     public void registerPayment(Long studentId, String item, BigDecimal amount, String payMethod,
                                 Long operatorId) {
         if (studentMapper.findById(studentId) == null) throw new BizException(404, "学员不存在");
+        String payItem = item == null || item.isBlank() ? "培训费" : item;
+        if ("培训费".equals(payItem)
+                && paymentMapper.countByStudentAndItem(studentId, payItem) > 0) {
+            throw new BizException(400, "该学员已有培训费记录，请勿重复登记");
+        }
         Payment p = new Payment();
         p.setStudentId(studentId);
-        p.setItem(item == null || item.isBlank() ? "培训费" : item);
+        p.setItem(payItem);
         p.setAmount(amount == null ? BigDecimal.ZERO : amount);
         p.setPayTime(LocalDateTime.now());
         p.setPayMethod(payMethod);

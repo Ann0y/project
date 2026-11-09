@@ -230,32 +230,9 @@ async function onAssign() {
   await load()
 }
 
-/* ------------------------------ 缴费登记 ------------------------------ */
-async function registerPayment(row) {
-  try {
-    const { value } = await ElMessageBox.prompt(`为 ${row.name} 登记缴费金额`, '缴费登记', {
-      confirmButtonText: '确认登记',
-      cancelButtonText: '取消',
-      inputValue: '5800',
-      inputPattern: /^\d+(\.\d{1,2})?$/,
-      inputErrorMessage: '请输入正确的金额',
-    })
-    const result = await data.registerPayment({
-      studentId: row.id,
-      item: '培训费',
-      amount: Number(value),
-      payMethod: '现金',
-    })
-    if (!result.ok) {
-      ElMessage.error(result.reason)
-      return
-    }
-    ElMessage.success(`已登记缴费 ¥${value}`)
-    await load()
-  } catch {
-    /* 取消 */
-  }
-}
+/* ------------------------------ 缴费状态 ------------------------------ */
+// 培训费每名学员只有一笔，缴费统一由学员端「学费缴纳」完成，
+// 管理端只展示缴费状态，不再提供会重复生成培训费的登记入口。
 </script>
 
 <template>
@@ -318,7 +295,7 @@ async function registerPayment(row) {
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="290" fixed="right">
+        <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
             <el-button link size="small" @click="openAssign(row)">分配</el-button>
@@ -331,7 +308,6 @@ async function registerPayment(row) {
             >
               审核
             </el-button>
-            <el-button link size="small" @click="registerPayment(row)">缴费</el-button>
             <el-dropdown trigger="click" @command="(cmd) => changeStatus(row, cmd)">
               <el-button link size="small">状态</el-button>
               <template #dropdown>

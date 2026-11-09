@@ -1,7 +1,7 @@
 /**
  * 端到端验证：前端 ↔ 后端真实接口
  * ---------------------------------------------------------------------------
- * 前置：后端运行在 8088，前端 dev server 运行在 5199（已代理 /api）。
+ * 前置：后端运行在 8080，前端 dev server 运行在 5199（已代理 /api）。
  * 覆盖：三角色登录、navbar 按角色显示、各页面数据从接口渲染、ECharts 出图、
  *       以及一次完整的业务闭环（学员约车 → 教练确认 → 学员看到状态）。
  */
@@ -133,7 +133,7 @@ const canvas1 = await ev(`[...document.querySelectorAll('canvas')].filter(c=>c.w
 check('进度页 ECharts 出图', canvas1 >= 2, `canvas=${canvas1}`)
 const navStudent = await ev(`[...document.querySelectorAll('.nav-link')].map(a=>a.textContent.trim())`)
 check('navbar 仅显示学员端菜单',
-  navStudent.length === 4 && !navStudent.includes('统计报表'), navStudent.join(' | '))
+  navStudent.length === 6 && !navStudent.includes('学员管理'), navStudent.join(' | '))
 
 /* ------------------------- 3. 学员约车 ------------------------- */
 await goto('/training')
@@ -219,8 +219,9 @@ check('身份证脱敏展示', /310101\*{8}/.test(stuText), '')
 
 await goto('/admin/reports')
 await sleep(1800)
+check('统计报表已合并到工作台', (await ev(`location.pathname`)) === '/admin/dashboard')
 const canvas3 = await ev(`[...document.querySelectorAll('canvas')].filter(c=>c.width>0).length`)
-check('统计报表 4 张图渲染', canvas3 >= 4, `canvas=${canvas3}`)
+check('工作台报表 4 张图渲染', canvas3 >= 4, `canvas=${canvas3}`)
 
 await goto('/admin/resources')
 await sleep(1500)

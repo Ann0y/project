@@ -135,13 +135,11 @@ const routes = [
     path: '/admin/exams',
     name: 'admin-exams',
     component: () => import('../views/admin/ExamView.vue'),
-    meta: { title: '考试管理', role: 'admin' },
+    meta: { title: '考试与成绩', role: 'admin' },
   },
   {
     path: '/admin/reports',
-    name: 'reports',
-    component: () => import('../views/admin/ReportView.vue'),
-    meta: { title: '统计报表', role: 'admin' },
+    redirect: { name: 'dashboard' },
   },
   {
     path: '/admin/users',

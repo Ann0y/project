@@ -187,6 +187,23 @@ a {
   animation: page-in 0.4s var(--ease-out) both;
 }
 
+/* 学员端：整体留白略放宽，减少信息挤压感 */
+.page--student {
+  gap: 26px;
+}
+
+.page--student .page-head {
+  padding-bottom: 8px;
+}
+
+.page--student .panel {
+  padding: 24px;
+}
+
+.page--student .panel__head {
+  margin-bottom: 20px;
+}
+
 @keyframes page-in {
   from {
     opacity: 0;
@@ -954,6 +971,10 @@ a {
 
   .page {
     gap: 18px;
+  }
+
+  .page--student .panel {
+    padding: 18px;
   }
 
   .grid--2,

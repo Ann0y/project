@@ -2,9 +2,8 @@
 /**
  * F13 培训与约车管理（管理端）
  * ---------------------------------------------------------------------------
- * 需求 F13：预约的确认 / 取消 / 爽约处理；学时记录查询与审核（通过 / 驳回）；
- *          培训课程 / 科目学时配置。
- * 接口：/api/bookings、/api/hours、/api/courses
+ * 需求 F13：预约的确认 / 取消 / 爽约处理；学时记录查询与审核（通过 / 驳回）。
+ * 接口：/api/bookings、/api/hours
  */
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -29,9 +28,6 @@ const hourStatus = ref('待审核')
 const hourRows = computed(() => data.hoursPage.list ?? [])
 const hourTotal = computed(() => data.hoursPage.total ?? 0)
 const hourPage = ref(1)
-
-/* ------------------------------ 科目配置 ------------------------------ */
-const courseRows = computed(() => data.courses)
 
 async function loadBookings() {
   loading.value = true
@@ -64,7 +60,7 @@ async function loadHours() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadBookings(), loadHours(), data.loadCourses().catch(() => {})])
+  await Promise.all([loadBookings(), loadHours()])
 })
 
 async function changeBookingStatus(row, next) {
@@ -135,7 +131,7 @@ const pendingCount = computed(
     <PageHeader
       eyebrow="管理端"
       title="培训与约车管理"
-      desc="预约处理、学时审核与科目学时配置。"
+      desc="预约处理与学时审核。"
     />
 
     <div class="glass panel">
@@ -255,23 +251,6 @@ const pendingCount = computed(
               @current-change="loadHours"
             />
           </div>
-        </el-tab-pane>
-
-        <el-tab-pane label="科目学时配置" name="course">
-          <div class="panel__head">
-            <span class="panel__hint">按《机动车驾驶培训教学大纲》配置各准驾车型学时</span>
-          </div>
-
-          <el-table :data="courseRows" stripe>
-            <el-table-column prop="licenseType" label="准驾车型" width="110" />
-            <el-table-column label="科目代码" width="100">
-              <template #default="{ row }">{{ row.subjectCode }}</template>
-            </el-table-column>
-            <el-table-column prop="subjectName" label="科目名称" min-width="240" />
-            <el-table-column label="大纲要求学时" width="130">
-              <template #default="{ row }">{{ row.requiredHours }}</template>
-            </el-table-column>
-          </el-table>
         </el-tab-pane>
       </el-tabs>
     </div>

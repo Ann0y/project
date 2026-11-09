@@ -5,6 +5,7 @@ import java.util.Map;
 import sch.whvcse.common.PageResult;
 import sch.whvcse.entity.Coach;
 import sch.whvcse.entity.ExamPlan;
+import sch.whvcse.entity.ExamRecord;
 import sch.whvcse.entity.HoursRecord;
 import sch.whvcse.entity.Payment;
 import sch.whvcse.entity.TrainCourse;
@@ -69,22 +70,34 @@ public interface AdminService {
 
     void updateCourseHours(Long id, java.math.BigDecimal requiredHours);
 
-    /* ------------------------------ F14 考试管理 ------------------------------ */
+    /* ------------------------------ F14 成绩同步（只读） ------------------------------
+     * 科目考试统一在交管系统（交管 12123 等）中报考，本系统不提供考试报名、
+     * 考场编排、名单确认等考试业务，只负责同步并展示成绩。
+     * ------------------------------------------------------------------------------ */
     List<ExamPlan> listExamPlans();
-
-    ExamPlan saveExamPlan(ExamPlan plan);
-
-    void changeExamPlanStatus(Long id, String status);
-
-    void deleteExamPlan(Long id);
 
     PageResult<ExamRecordView> listExamRecords(Long planId, String status, int page, int size);
 
-    /** 录入成绩：不合格自动生成补考记录 */
-    void saveExamScore(Long recordId, java.math.BigDecimal score);
+    /**
+     * 同步交管系统成绩：按「学员 + 科目 + 考试日期」写入或更新一条成绩记录。
+     *
+     * @param studentId   本系统学员主键，可为空（为空时用 studentName 匹配）
+     * @param studentName 学员姓名，studentId 为空时必填；重名时取第一条
+     * @param subjectCode 科目代码 1~4
+     * @param examDate    实际考试日期，可为空（空则取当天）
+     * @param score       成绩，可为空（空表示该场次尚未出成绩，状态为待考）
+     */
+    ExamRecordView syncExamScore(Long studentId, String studentName, String subjectCode,
+                                 java.time.LocalDate examDate, java.math.BigDecimal score);
 
-    /** 确认考试名单（把待考记录纳入本次考试） */
-    void confirmRoster(Long planId);
+    /**
+     * 批量同步交管系统成绩（对接推送接口时使用）。
+     * <p>单条失败只记录到错误列表，不影响其余条目；整个批次在一个事务里。</p>
+     *
+     * @param items 每项含 studentId 或 studentName、subjectCode、examDate、score
+     * @return {total, created, updated, skipped, errors[]}
+     */
+    java.util.Map<String, Object> syncExamScoresBatch(java.util.List<java.util.Map<String, Object>> items);
 
     /* ------------------------------ F15 统计报表 ------------------------------ */
     Map<String, Object> statistics(String start, String end, String licenseType,

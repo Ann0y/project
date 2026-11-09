@@ -383,47 +383,32 @@ export const useDataStore = defineStore('data', () => {
     }
   }
 
-  async function saveExamPlan(payload) {
+  /**
+   * 从交管系统同步一条成绩。
+   * 考试在交管软件中报考，管理端只做成绩同步与查看，不再有发布/编辑考试计划。
+   */
+  async function syncExamScore(payload) {
     try {
-      if (payload.id) await api.updateExamPlanApi(payload.id, payload)
-      else await api.createExamPlanApi(payload)
+      await api.syncExamScoreApi(payload)
       return { ok: true }
     } catch (e) {
       return { ok: false, reason: e.message }
     }
   }
 
-  async function changeExamPlanStatus(id, status) {
+  /** 批量同步成绩，返回后端统计（created / updated / skipped / errors） */
+  async function syncExamScoresBatch(items) {
     try {
-      await api.changeExamPlanStatusApi(id, status)
-      return { ok: true }
+      const data = await api.syncExamScoresBatchApi(items)
+      return { ok: true, data }
     } catch (e) {
       return { ok: false, reason: e.message }
     }
   }
 
-  async function deleteExamPlan(id) {
+  async function fetchExamSyncTemplate() {
     try {
-      await api.deleteExamPlanApi(id)
-      return { ok: true }
-    } catch (e) {
-      return { ok: false, reason: e.message }
-    }
-  }
-
-  async function saveExamScore(recordId, score) {
-    try {
-      await api.saveScoreApi({ recordId, score })
-      return { ok: true }
-    } catch (e) {
-      return { ok: false, reason: e.message }
-    }
-  }
-
-  async function confirmRoster(planId) {
-    try {
-      await api.confirmRosterApi(planId)
-      return { ok: true }
+      return { ok: true, data: await api.examSyncTemplateApi() }
     } catch (e) {
       return { ok: false, reason: e.message }
     }
@@ -530,7 +515,7 @@ export const useDataStore = defineStore('data', () => {
     saveStudent, auditStudent, assignCoachAndVehicle, changeStudentStatus, deleteStudent,
     saveCoach, saveVehicle, changeVehicleStatus,
     changeAdminBookingStatus, auditHoursRecord, updateCourseHours,
-    saveExamPlan, changeExamPlanStatus, deleteExamPlan, saveExamScore, confirmRoster,
+    syncExamScore, syncExamScoresBatch, fetchExamSyncTemplate,
     saveUser, setUserStatus, resetUserPassword, removeUser, registerPayment,
   }
 })

@@ -84,7 +84,7 @@ function hoursText(v) {
 </script>
 
 <template>
-  <section class="page">
+  <section class="page page--student">
     <PageHeader
       eyebrow="学员端"
       title="我的学时"
@@ -202,14 +202,14 @@ function hoursText(v) {
 .hour-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 18px;
 }
 
 .hour-stat {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 18px 20px;
+  gap: 8px;
+  padding: 22px 24px;
 }
 
 .hour-stat__k {
@@ -239,6 +239,20 @@ function hoursText(v) {
 
 .u-danger {
   color: var(--state-danger);
+}
+
+.query {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
 }
 
 @media (max-width: 640px) {

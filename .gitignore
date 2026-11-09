@@ -18,3 +18,5 @@ backend/target/
 
 # 日志
 *.log
+.work/
+

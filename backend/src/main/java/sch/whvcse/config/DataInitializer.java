@@ -172,9 +172,10 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         /* ==================== 4. 缴费记录 ==================== */
+        // 每名学员只保留一笔「培训费」记录，不重复追加。
+        // 主学员的这笔培训费保持「未缴」，用于演示学员端「学费缴纳」。
         for (Student st : allStudents) {
-            if ("待审核".equals(st.getStatus())) {
-                // 待审核学员：缴费未缴，演示缴费登记
+            if ("待审核".equals(st.getStatus()) || st.getId().equals(mainStudent.getId())) {
                 paymentMapper.insert(payment(st.getId(), "培训费", "5800.00", null, null, "未缴", admin.getId()));
             } else if ("退学".equals(st.getStatus())) {
                 Payment p = payment(st.getId(), "培训费", "8800.00",
@@ -188,10 +189,6 @@ public class DataInitializer implements CommandLineRunner {
                 paymentMapper.insert(p);
             }
         }
-
-        // 主学员保留一笔待缴学费，用于演示学员端「学费缴纳」
-        paymentMapper.insert(payment(mainStudent.getId(), "培训费（第二阶段）",
-                "2800.00", null, null, "未缴", admin.getId()));
 
         /* ==================== 5. 排课时段（未来 14 天，密集） ==================== */
         // 每个工作日 4 个时段，主教练全部排，另两位教练部分排

@@ -29,7 +29,6 @@ import sch.whvcse.entity.Vehicle;
 import sch.whvcse.mapper.BookingMapper;
 import sch.whvcse.mapper.CoachMapper;
 import sch.whvcse.mapper.CoachScheduleMapper;
-import sch.whvcse.mapper.ExamPlanMapper;
 import sch.whvcse.mapper.ExamRecordMapper;
 import sch.whvcse.mapper.HoursRecordMapper;
 import sch.whvcse.mapper.PaymentMapper;
@@ -49,7 +48,8 @@ public class StudentPortalServiceImpl implements StudentPortalService {
      * 学员端业务规则摘要
      *   约车：只能约本人带教教练的时段，且只能约今天起 BOOKING_WINDOW_DAYS 天内的；
      *         一名学员最多同时持有 MAX_ACTIVE_BOOKINGS 条未完成预约（待确认 / 已确认）。
-     *   考试：本科学时达标 + 按科目顺序报名（上一科目需已有报名记录）。
+     *   考试：本系统只展示成绩。科目考试由学员本人到交管系统（交管 12123 等）预约报考，
+     *         成绩回传后同步进本系统，学员端只读，不提供考试报名入口。
      */
 
     /** 学员可预约的时间窗口（天）：今天起算 5 天 */
@@ -61,9 +61,6 @@ public class StudentPortalServiceImpl implements StudentPortalService {
      */
     private static final int MAX_ACTIVE_BOOKINGS = 2;
 
-    /** 科目报考顺序：后一科目需先有上一科目的报名记录 */
-    private static final List<String> SUBJECT_ORDER = List.of("1", "2", "3", "4");
-
     private final StudentMapper studentMapper;
     private final UserMapper userMapper;
     private final CoachMapper coachMapper;
@@ -72,7 +69,6 @@ public class StudentPortalServiceImpl implements StudentPortalService {
     private final CoachScheduleMapper scheduleMapper;
     private final BookingMapper bookingMapper;
     private final HoursRecordMapper hoursMapper;
-    private final ExamPlanMapper examPlanMapper;
     private final ExamRecordMapper examRecordMapper;
     private final PaymentMapper paymentMapper;
     private final IdCardCrypto idCardCrypto;
@@ -85,7 +81,6 @@ public class StudentPortalServiceImpl implements StudentPortalService {
                                     CoachScheduleMapper scheduleMapper,
                                     BookingMapper bookingMapper,
                                     HoursRecordMapper hoursMapper,
-                                    ExamPlanMapper examPlanMapper,
                                     ExamRecordMapper examRecordMapper,
                                     PaymentMapper paymentMapper,
                                     IdCardCrypto idCardCrypto) {
@@ -97,7 +92,6 @@ public class StudentPortalServiceImpl implements StudentPortalService {
         this.scheduleMapper = scheduleMapper;
         this.bookingMapper = bookingMapper;
         this.hoursMapper = hoursMapper;
-        this.examPlanMapper = examPlanMapper;
         this.examRecordMapper = examRecordMapper;
         this.paymentMapper = paymentMapper;
         this.idCardCrypto = idCardCrypto;
@@ -601,12 +595,6 @@ public class StudentPortalServiceImpl implements StudentPortalService {
         Student s = studentMapper.findById(studentId);
         if (s == null) throw new BizException(404, "学员档案不存在");
         return s;
-    }
-
-    /** 取报考顺序上的上一个科目代码；科目一没有前置科目，返回 null */
-    private String previousSubject(String subjectCode) {
-        int idx = SUBJECT_ORDER.indexOf(subjectCode);
-        return idx <= 0 ? null : SUBJECT_ORDER.get(idx - 1);
     }
 
     private Map<String, BigDecimal> doneHoursMap(Long studentId) {

@@ -22,7 +22,6 @@ export const BOOKING_STATUS = ['待确认', '已确认', '已完成', '已取消
 export const AUDIT_STATUS = ['待审核', '已通过', '已驳回']
 export const EXAM_STATUS = ['待考', '合格', '不合格', '补考中']
 export const VEHICLE_STATUS = ['可用', '维修', '停用']
-export const PLAN_STATUS = ['报名中', '已截止', '已完成']
 
 export function subjectShort(code) {
   const hit = SUBJECTS.find((s) => s.code === String(code))

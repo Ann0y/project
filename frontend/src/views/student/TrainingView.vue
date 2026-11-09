@@ -43,7 +43,7 @@ function formatDate(d) {
 
 const WEEK_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
-/** 今天起 5 天 */
+/** 今天起 5 天（周六、周日不排课，直接不出现在可选日期里） */
 const dateOptions = computed(() => {
   const list = []
   const base = new Date()
@@ -51,6 +51,8 @@ const dateOptions = computed(() => {
   for (let i = 0; i < BOOKING_WINDOW_DAYS; i++) {
     const d = new Date(base)
     d.setDate(base.getDate() + i)
+    // 0 = 周日，6 = 周六
+    if (d.getDay() === 0 || d.getDay() === 6) continue
     const value = formatDate(d)
     const label = i === 0 ? '今天' : i === 1 ? '明天' : WEEK_LABELS[d.getDay()]
     list.push({ value, label: `${value}（${label}）` })
@@ -393,7 +395,7 @@ async function removeBooking(booking) {
 </script>
 
 <template>
-  <section class="page">
+  <section class="page page--student">
     <PageHeader
       eyebrow="学员端"
       title="培训与约车"
@@ -631,14 +633,14 @@ async function removeBooking(booking) {
 .booking-form {
   display: flex;
   align-items: flex-end;
-  gap: 14px;
+  gap: 18px;
   flex-wrap: wrap;
 }
 
 .booking-form__field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .booking-form__label {
@@ -651,8 +653,9 @@ async function removeBooking(booking) {
 .booking-block {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 16px;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 18px 20px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-strong);
   background: var(--bg-sunken);
@@ -663,14 +666,14 @@ async function removeBooking(booking) {
 .booking-block__head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .booking-block__list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -679,19 +682,21 @@ async function removeBooking(booking) {
 .booking-block__item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   flex-wrap: wrap;
 }
 
 .booking-form__tip {
-  margin: 12px 0 0;
+  margin: 16px 0 0;
   font-size: 12.5px;
+  line-height: 1.7;
   color: var(--text-secondary);
 }
 
 .reschedule__current {
-  margin: 0 0 14px;
+  margin: 0 0 18px;
   font-size: 12.5px;
+  line-height: 1.7;
 }
 
 @media (max-width: 640px) {

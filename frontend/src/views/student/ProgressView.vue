@@ -95,7 +95,7 @@ const unpaidTotal = computed(() =>
 const quickActions = [
   { name: 'training', title: '预约培训', desc: '选择教练与时段', icon: Calendar },
   { name: 'hours', title: '我的学时', desc: '查看学时审核明细', icon: Clock },
-  { name: 'exams', title: '考试与成绩', desc: '查看各科考试成绩', icon: Tickets },
+  { name: 'exams', title: '考试与成绩', desc: '查看交管系统同步的成绩', icon: Tickets },
   { name: 'payments', title: '学费缴纳', desc: '缴纳待缴费用', icon: Wallet },
 ]
 
@@ -222,7 +222,7 @@ const subjectOption = computed(() => {
 </script>
 
 <template>
-  <section class="page">
+  <section class="page page--student">
     <PageHeader
       eyebrow="学员端"
       :title="auth.isAuthenticated ? `${auth.displayName}，欢迎回来` : '培训进度（演示视图）'"
@@ -420,15 +420,15 @@ const subjectOption = computed(() => {
 .guest {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 28px 26px;
+  gap: 28px;
+  padding: 32px 30px;
 }
 
 .guest__head {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   max-width: 620px;
 }
 
@@ -449,14 +449,14 @@ const subjectOption = computed(() => {
 .guest__grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
 .guest__slot {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 18px 20px;
   border-radius: var(--radius-md);
   border: 1px dashed var(--border-base);
   background: var(--bg-sunken);
@@ -477,13 +477,13 @@ const subjectOption = computed(() => {
 .info-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+  gap: 22px;
 }
 
 .info {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 5px;
 }
 
 .info__k {
@@ -501,15 +501,15 @@ const subjectOption = computed(() => {
 .u-center {
   display: flex;
   justify-content: center;
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 /* 临近培训提醒条 */
 .upcoming {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 18px;
+  gap: 14px;
+  padding: 14px 20px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-base);
   background: var(--bg-sunken);
@@ -537,11 +537,11 @@ const subjectOption = computed(() => {
 .home-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  gap: 18px;
 }
 
 .home-stats .stat-card {
-  gap: 8px;
+  gap: 10px;
 }
 
 .stat-card__link {
@@ -558,8 +558,8 @@ const subjectOption = computed(() => {
 .fee-alert {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 18px;
+  gap: 16px;
+  padding: 16px 20px;
   border: 1px solid var(--accent-border);
   border-radius: var(--radius-md);
   background: var(--accent-soft);
@@ -576,12 +576,12 @@ const subjectOption = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
   background: var(--white);
   color: var(--accent);
-  font-size: 18px;
+  font-size: 19px;
 }
 
 .fee-alert__body {
@@ -613,14 +613,14 @@ const subjectOption = computed(() => {
 .quick-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
 .quick-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px;
+  gap: 14px;
+  padding: 18px;
   border: 1px solid var(--border-base);
   border-radius: var(--radius-md);
   background: var(--bg-sunken);
@@ -638,13 +638,13 @@ const subjectOption = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
   background: var(--white);
   border: 1px solid var(--border-base);
   color: var(--accent);
-  font-size: 16px;
+  font-size: 17px;
   flex: none;
 }
 

@@ -51,6 +51,11 @@
             <artifactId>mybatis-spring-boot-starter</artifactId>
             <version>4.1.0</version>
         </dependency>
+        <!-- JDBC：数据源自动配置（Boot 4 不会从 web 传递，需显式引入） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
 
         <!-- 3) MySQL 驱动：版本由父 POM 管理，运行期才需要 -->
         <dependency>

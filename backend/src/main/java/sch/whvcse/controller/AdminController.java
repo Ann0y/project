@@ -7,9 +7,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -40,9 +37,6 @@ import sch.whvcse.vo.ExamRecordView;
 @RestController
 @RequestMapping("/api")
 public class AdminController {
-
-    /** JSON 与 Map 互转（批量同步时把数组元素转成 Map） */
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final AdminService adminService;
     private final SessionUser sessionUser;
@@ -290,79 +284,6 @@ public class AdminController {
             HttpSession session) {
         sessionUser.requireAdmin(session);
         return Result.ok(adminService.listExamRecords(planId, status, page, size));
-    }
-
-    /**
-     * 从交管系统同步一条成绩。
-     * <p>管理端不提供考试报名与成绩手工录入，成绩由交管系统回传后写入本系统。
-     * 可按学生主键 {@code studentId} 或姓名 {@code studentName} 指定学员。</p>
-     */
-    @PostMapping("/exam-scores/sync")
-    public Result<ExamRecordView> syncExamScore(@RequestBody Map<String, Object> body,
-                                                HttpSession session) {
-        sessionUser.requireAdmin(session);
-        Object studentId = body.get("studentId");
-        Object studentName = body.get("studentName");
-        Object subjectCode = body.get("subjectCode");
-        if ((studentId == null && studentName == null) || subjectCode == null) {
-            return Result.fail(400, "请提供学员与科目");
-        }
-        Object score = body.get("score");
-        Object examDate = body.get("examDate");
-        LocalDate date;
-        try {
-            date = examDate == null || examDate.toString().isBlank()
-                    ? null : LocalDate.parse(examDate.toString().substring(0, 10));
-        } catch (Exception e) {
-            return Result.fail(400, "考试日期格式应为 yyyy-MM-dd");
-        }
-        return Result.ok(adminService.syncExamScore(
-                studentId == null ? null : toLong(studentId),
-                studentName == null ? null : studentName.toString().trim(),
-                subjectCode.toString(),
-                date,
-                score == null || score.toString().isBlank() ? null : new BigDecimal(score.toString())));
-    }
-
-    /**
-     * 批量同步交管系统成绩（对接推送接口）。
-     * <p>请求体可以是数组，也可以是 {@code {"items": [...]}}；
-     * 单条失败不会中断整批，结果里返回 created / updated / skipped 与逐条错误。</p>
-     */
-    @PostMapping("/exam-scores/sync/batch")
-    public Result<Map<String, Object>> syncExamScoresBatch(
-            @RequestBody JsonNode body,
-            HttpSession session) {
-        sessionUser.requireAdmin(session);
-        JsonNode arr =
-                body.isArray() ? body : body.path("items");
-        if (!arr.isArray()) {
-            return Result.fail(400, "请提交成绩数组，或用 {\"items\": [...]} 包裹");
-        }
-        List<Map<String, Object>> items = new ArrayList<>();
-        for (JsonNode node : arr) {
-            if (node == null || node.isNull()) continue;
-            items.add(OBJECT_MAPPER.convertValue(node,
-                    new TypeReference<Map<String, Object>>() {}));
-        }
-        return Result.ok(adminService.syncExamScoresBatch(items));
-    }
-
-    /** 增量同步模板：告诉对接方每条记录该给哪些字段 */
-    @GetMapping("/exam-scores/sync/template")
-    public Result<List<Map<String, Object>>> syncTemplate(HttpSession session) {
-        sessionUser.requireAdmin(session);
-        List<Map<String, Object>> sample = new ArrayList<>();
-        for (String subject : sch.whvcse.common.Enums.SUBJECTS.keySet().stream().sorted().toList()) {
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("studentId", 1);
-            row.put("studentName", "李小明");
-            row.put("subjectCode", subject);
-            row.put("examDate", LocalDate.now().toString());
-            row.put("score", 90);
-            sample.add(row);
-        }
-        return Result.ok(sample);
     }
 
     /* ============================== F15 统计报表 ============================== */

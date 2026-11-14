@@ -126,7 +126,6 @@ const slotOptions = computed(() => toOptions(selectedDate.value))
  * 注意与「用户手动选择」区分：
  *   - 首次初始化（用户尚未手动选过）→ 自动跳到有空的日期，避免一进来就是满的
  *   - 用户手动选过之后           → 尊重用户选择，即使当天已满也不改回
- *     （之前不区分这两者，导致用户选的日期被立刻改回去，表现为「选不了」）
  */
 const userPickedDate = ref(false)
 
@@ -152,19 +151,19 @@ function ensureSlotSelected() {
   selectedSlotId.value = firstFree ? firstFree.value : null
 }
 
-// ① 首次与数据变化：重算默认日期（不动用户正在选的日期）
+// 首次与数据变化：重算默认日期（不动用户正在选的日期）
 watch([dateOptions, slotsByDate], () => {
   pickDefaultDate()
 }, { immediate: true })
 
-// ② 用户切换日期后：标记为用户手动选择，并为该日期挑一个可选时段
+// 用户切换日期后：标记为用户手动选择，并为该日期挑一个可选时段
 watch(selectedDate, (val, oldVal) => {
   // 初始化时的赋值不算用户操作
   if (oldVal !== undefined && val) userPickedDate.value = true
   ensureSlotSelected()
 })
 
-// ③ 数据刷新后：保证已选时段仍然有效（例如被别人约满了）
+// 数据刷新后：保证已选时段仍然有效（例如被别人约满了）
 watch([slotOptions], () => {
   ensureSlotSelected()
 })

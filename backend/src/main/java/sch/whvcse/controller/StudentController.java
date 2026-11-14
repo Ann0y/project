@@ -25,7 +25,7 @@ import sch.whvcse.vo.UserVO;
 /**
  * 学员端接口（需求文档 F02–F04）。
  * 所有接口的数据范围都由「当前登录学员」决定，不接受前端传入 studentId，
- * 从根上避免越权查他人数据。
+ * 避免越权查他人数据。
  */
 @RestController
 @RequestMapping("/api")

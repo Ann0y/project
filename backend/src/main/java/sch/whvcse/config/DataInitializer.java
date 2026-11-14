@@ -173,7 +173,7 @@ public class DataInitializer implements CommandLineRunner {
 
         /* ==================== 4. 缴费记录 ==================== */
         // 每名学员只保留一笔「培训费」记录，不重复追加。
-        // 主学员的这笔培训费保持「未缴」，用于演示学员端「学费缴纳」。
+        // 主学员的这笔培训费保持「未缴」，用于学员端「学费缴纳」流程。
         for (Student st : allStudents) {
             if ("待审核".equals(st.getStatus()) || st.getId().equals(mainStudent.getId())) {
                 paymentMapper.insert(payment(st.getId(), "培训费", "5800.00", null, null, "未缴", admin.getId()));
@@ -232,10 +232,10 @@ public class DataInitializer implements CommandLineRunner {
                 .toList();
 
         // 业务规则：一名学员最多同时持有 2 条未完成预约（待确认 / 已确认），由 book() 校验。
-        // 演示约定：
-        //   · student 账号（李小明）不播任何预约，默认「还没有预约」，方便现场演示约车；
-        //   · 其他在训学员播 0~2 条未完成预约，供教练端「待确认预约 / 预约处理」演示；
-        //   · 另播 1~2 条历史记录（已完成 / 已取消 / 爽约），只用于列表展示，不占用时段容量。
+        // 数据约定：
+        //   · student 账号（李小明）不生成预约，保持「还没有预约」的初始状态；
+        //   · 其他在训学员持有 0~2 条未完成预约，覆盖「最多 2 条」的边界；
+        //   · 另有 1~2 条历史记录（已完成 / 已取消 / 爽约），只用于列表展示，不占用时段容量。
         String[] historyStatuses = {"已完成", "已取消", "爽约"};
         int slotIdx = 0;
         int studentIdx = 0;
@@ -285,14 +285,14 @@ public class DataInitializer implements CommandLineRunner {
         /* ==================== 7. 学时记录（各科目覆盖不同进度） ==================== */
         // 主学员：科目一已满、科目二接近满、科目三已满、科目四未开始
         // （科目三学到 24 学时是刻意留的：学时达标但尚未报名科三，
-        //   便于演示「按科目顺序报名」以及成功后科目四才会放行）
+        //   用于验证「按科目顺序报名」以及成功后科目四才会放行）
         insertHours(studentMapper.findById(mainStudent.getId()), coach.getId(), "1",
                 "12.0", today.minusDays(50));
         insertHours(studentMapper.findById(mainStudent.getId()), coach.getId(), "2",
                 "20.0", today.minusDays(20));
         insertHours(studentMapper.findById(mainStudent.getId()), coach.getId(), "3",
                 "24.0", today.minusDays(10));
-        // 待审核记录，用于演示管理员审核
+        // 待审核记录，用于管理员审核流程
         hoursMapper.insert(hours(mainStudent.getId(), coach.getId(), "3",
                 new BigDecimal("2.0"), today.minusDays(1), "待审核"));
 

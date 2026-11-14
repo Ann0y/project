@@ -49,7 +49,7 @@ const accounts = computed(() => {
   )
 })
 
-// 被拦截时自动填入该角色演示账号，减少答辩演示操作
+// 被拦截时自动填入该角色的演示账号，减少重复输入
 watch(
   needRole,
   (role) => {

@@ -12,7 +12,7 @@ const BASE = process.env.BASE_URL || 'http://127.0.0.1:5199'
 const PORT = 9225
 const PROFILE = '/home/annoy/study/projects/.chrome-profile'
 
-const chrome = spawn('/usr/bin/chromium', [
+const chrome = spawn('/usr/bin/google-chrome-stable', [
   '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
   '--no-first-run', '--disable-crash-reporter', '--disable-breakpad',
   `--user-data-dir=${PROFILE}`, `--remote-debugging-port=${PORT}`,
@@ -165,7 +165,8 @@ const slotCount = await ev(`(async () => {
   selects[1].querySelector('.el-select__wrapper').click()
   await new Promise(r => setTimeout(r, 600))
   const panels = [...document.querySelectorAll('.el-select__popper')]
-  const panel = panels.find(p => (p.querySelector('.el-select-dropdown__item')?.textContent || '').includes('—'))
+  // 时段项形如 "08:00 - 10:00"，日期项形如 "2026-11-12（今天）"；用 ' - ' 区分
+  const panel = panels.find(p => (p.querySelector('.el-select-dropdown__item')?.textContent || '').includes(' - '))
   const n = panel ? panel.querySelectorAll('.el-select-dropdown__item').length : 0
   document.body.click()
   await new Promise(r => setTimeout(r, 300))
@@ -235,7 +236,7 @@ check('车辆 tab 加载车辆档案（真实数据）', await ev(`document.body
 await goto('/admin/exams')
 await sleep(1500)
 check('考试管理页加载计划与成绩',
-  await ev(`document.body.innerText.includes('考试计划')`))
+  await ev(`document.body.innerText.includes('考试与成绩')`))
 
 await goto('/admin/users')
 await sleep(1500)
